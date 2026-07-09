@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "AppUser system registration and login properties",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "worker"] },
+        "fullName": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "password": { "type": "string" }
+      },
+      "required": ["uid", "email", "role", "fullName", "isActive"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Company operational categories for tasks or expenses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["expense", "task"] }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Field operation tasks assigned to workers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "assignedToName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "in_progress", "done"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "assignedTo", "status", "createdAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Field and office financial expenses and invoices",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "amount": { "type": "number" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "submittedBy": { "type": "string" },
+        "submittedByName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "amount", "category", "submittedBy", "status", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app system broadcast notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["all", "specific"] },
+        "targetUid": { "type": "string" },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "body", "targetType", "isRead", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Users credentials and operational access details"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Allowed categorization types"
+    },
+    "/tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Missions assigned to operators"
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Worker expenses awaiting review or finalized"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Notices and system alerts"
+    }
+  }
+}

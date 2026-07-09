@@ -1,0 +1,6 @@
+{
+  "name": "Ben Amar Enterprise System",
+  "description": "نظام بن عمر لإدارة المؤسسات - نظام متكامل لإدارة المهام والمصاريف والاتصال الداخلي متوافق بالكامل مع الحاسوب والجوال",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
