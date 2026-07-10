@@ -36,7 +36,9 @@
         "assignedTo": { "type": "string" },
         "assignedToName": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "in_progress", "done"] },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "archived": { "type": "boolean" },
+        "archivedAt": { "type": "string" }
       },
       "required": ["id", "title", "assignedTo", "status", "createdAt"]
     },
@@ -70,6 +72,79 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "title", "body", "targetType", "isRead", "createdAt"]
+    },
+    "StockTransfer": {
+      "title": "StockTransfer",
+      "description": "Stock movements from warehouse to store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemName": { "type": "string" },
+        "partName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "fromLocation": { "type": "string" },
+        "toLocation": { "type": "string" },
+        "movedByUid": { "type": "string" },
+        "movedByName": { "type": "string" },
+        "isEnteredInSalesSystem": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "entered"] }
+      },
+      "required": ["id", "partName", "quantity", "fromLocation", "toLocation", "isEnteredInSalesSystem", "status", "createdAt"]
+    },
+    "ClientOrder": {
+      "title": "ClientOrder",
+      "description": "Client orders for parts preparation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "deliveryDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "preparing", "ready", "delivered", "prepared"] },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "clientName", "deliveryDate", "status", "items", "createdAt"]
+    },
+    "ClientDebt": {
+      "title": "ClientDebt",
+      "description": "Outstanding client credit and debts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "paidAmount": { "type": "number" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["unpaid", "paid", "overdue", "partial"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "clientName", "totalAmount", "paidAmount", "dueDate", "status", "createdAt"]
+    },
+    "CamionRoute": {
+      "title": "CamionRoute",
+      "description": "Camion distribution routes and tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dayOfWeek": { "type": "string" },
+        "routePath": { "type": "string" },
+        "driverName": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "dayOfWeek", "routePath", "driverName"]
+    },
+    "SupplierAlert": {
+      "title": "SupplierAlert",
+      "description": "Alerts regarding suppliers defects and debts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "type": { "type": "string", "enum": ["debt", "merchandise_error", "call_reason"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "supplierName", "type", "createdAt"]
     }
   },
   "firestore": {
@@ -92,6 +167,26 @@
     "/notifications/{notificationId}": {
       "schema": "Notification",
       "description": "Notices and system alerts"
+    },
+    "/transfers/{transferId}": {
+      "schema": "StockTransfer",
+      "description": "Stock transfer operations"
+    },
+    "/clientOrders/{orderId}": {
+      "schema": "ClientOrder",
+      "description": "Wholesale client orders"
+    },
+    "/clientDebts/{debtId}": {
+      "schema": "ClientDebt",
+      "description": "Outstanding customer credits"
+    },
+    "/camionRoutes/{routeId}": {
+      "schema": "CamionRoute",
+      "description": "Truck distribution logs"
+    },
+    "/supplierAlerts/{alertId}": {
+      "schema": "SupplierAlert",
+      "description": "Supplier operational claims"
     }
   }
 }

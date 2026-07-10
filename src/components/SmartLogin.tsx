@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppUser } from '../types';
 import { ShieldAlert, User, Lock, Smartphone, Monitor, ChevronRight } from 'lucide-react';
+import FBMLogo from './FBMLogo';
 
 interface SmartLoginProps {
   users: AppUser[];
@@ -20,11 +21,11 @@ export default function SmartLogin({ users, onLoginSuccess }: SmartLoginProps) {
     setIsLoading(true);
 
     setTimeout(() => {
-      const trimmedUser = username.trim().toLowerCase();
+      const trimmedUser = (username || '').trim().toLowerCase();
       // Apply disguise: if no @, add @benamar.local
       const emailToSearch = trimmedUser.includes('@') ? trimmedUser : `${trimmedUser}@benamar.local`;
 
-      const foundUser = users.find(u => u.email.toLowerCase() === emailToSearch);
+      const foundUser = users.find(u => (u.email || '').toLowerCase() === emailToSearch);
 
       if (!foundUser) {
         setError('❌ خطأ في اسم المستخدم أو كلمة المرور (الحساب غير مسجل في قاعدة البيانات)');
@@ -69,12 +70,11 @@ export default function SmartLogin({ users, onLoginSuccess }: SmartLoginProps) {
       <div className="w-full max-w-lg bg-[#050E46]/90 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl relative backdrop-blur-md z-10">
         
         {/* Brand logo header matching Algerian corporate theme */}
-        <div className="flex flex-col items-center mb-8 text-center">
-          <div className="bg-[#76BC21] text-white px-6 py-3 rounded-2xl font-bold text-xl tracking-wider shadow-lg mb-4 transform hover:scale-105 transition-all duration-300">
-            LES FRÈRES BEN AMAR
-            <span className="block text-xs font-medium tracking-normal text-white/90 mt-1">FBM · نظام إدارة المؤسسة</span>
-          </div>
-          <p className="text-slate-400 text-sm mt-1 font-medium">نظام الموارد والعمليات الميدانية للكمبيوتر والهاتف</p>
+        <div className="flex flex-col items-center mb-6 text-center">
+          <FBMLogo size="md" className="mb-2" />
+          <span className="text-[10px] bg-[#76BC21]/15 text-[#76BC21] border border-[#76BC21]/25 px-2.5 py-0.5 rounded-full font-bold">
+            FBM · نظام إدارة وتسيير الموارد والعمليات الميدانية للشركة
+          </span>
         </div>
 
         {/* Responsive view guide alert badge */}

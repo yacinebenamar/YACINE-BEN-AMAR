@@ -10,7 +10,7 @@ import {
   query,
   orderBy
 } from 'firebase/firestore';
-import { AppUser, CompanyCategory, CompanyTask, CompanyExpense, CompanyNotification } from './types';
+import { AppUser, CompanyCategory, CompanyTask, CompanyExpense, CompanyNotification, AttendanceRecord, ChatMessage } from './types';
 
 const firebaseConfig = {
   apiKey: "AIzaSyCBoD-WuzL4ZoicKk4tFEU8khaYxy7Krlg",
@@ -33,6 +33,8 @@ const COLL_CATEGORIES = 'categories';
 const COLL_TASKS = 'tasks';
 const COLL_EXPENSES = 'expenses';
 const COLL_NOTIFICATIONS = 'notifications';
+const COLL_ATTENDANCE = 'attendance';
+const COLL_CHAT = 'chat';
 
 // Admin Account Requested
 export const ADMIN_USER: AppUser = {
@@ -44,11 +46,41 @@ export const ADMIN_USER: AppUser = {
   password: 'Benamor62'
 };
 
+// Clean undefined properties from Firestore payloads
+function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  
+  const cleaned = Array.isArray(obj) ? [] : {};
+  
+  for (const key of Object.keys(obj as any)) {
+    const value = (obj as any)[key];
+    if (value !== undefined) {
+      if (typeof value === 'object' && value !== null) {
+        (cleaned as any)[key] = cleanUndefined(value);
+      } else {
+        (cleaned as any)[key] = value;
+      }
+    }
+  }
+  return cleaned as T;
+}
+
+// Wrapper around setDoc that cleans undefined fields
+async function setDocSafe(ref: any, data: any, options?: any) {
+  const cleaned = cleanUndefined(data);
+  if (options) {
+    await setDoc(ref, cleaned, options);
+  } else {
+    await setDoc(ref, cleaned);
+  }
+}
+
 // Initialize default data if firestore is empty
 export async function seedFirestoreIfNeeded() {
   try {
     // Always guarantee admin user YACINE is present and active
-    await setDoc(doc(db, COLL_USERS, ADMIN_USER.uid), ADMIN_USER, { merge: true });
+    await setDocSafe(doc(db, COLL_USERS, ADMIN_USER.uid), ADMIN_USER, { merge: true });
 
     const catSnap = await getDocs(collection(db, COLL_CATEGORIES));
     if (catSnap.empty) {
@@ -62,9 +94,181 @@ export async function seedFirestoreIfNeeded() {
         { id: 'cat_task_2', name: 'ترتيب المستودع', type: 'task' }
       ];
       for (const cat of initialCategories) {
-        await setDoc(doc(db, COLL_CATEGORIES, cat.id), cat);
+        await setDocSafe(doc(db, COLL_CATEGORIES, cat.id), cat);
       }
     }
+
+    // Seed stock transfers if empty
+    const transferSnap = await getDocs(collection(db, COLL_TRANSFERS));
+    if (transferSnap.empty) {
+      console.log('Seeding stock transfers...');
+      const initialTransfers = [
+        {
+          id: 'tr_1',
+          itemName: 'براطفورس / Pratforce',
+          quantity: 50,
+          fromLocation: 'المستودع الثاني',
+          toLocation: 'المحل',
+          movedByUid: 'worker_said',
+          movedByName: 'العامل سعيد',
+          isEnteredInSalesSystem: false,
+          createdAt: new Date().toISOString(),
+          status: 'pending'
+        },
+        {
+          id: 'tr_2',
+          itemName: 'ممتص صدمات خلفي / Shock Absorber',
+          quantity: 20,
+          fromLocation: 'المستودع الأول',
+          toLocation: 'المحل',
+          movedByUid: 'admin_yacine',
+          movedByName: 'ياسين',
+          isEnteredInSalesSystem: true,
+          enteredByUid: 'admin_yacine',
+          enteredByName: 'ياسين',
+          enteredAt: new Date().toISOString(),
+          createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+          status: 'verified'
+        }
+      ];
+      for (const tr of initialTransfers) {
+        await setDocSafe(doc(db, COLL_TRANSFERS, tr.id), tr);
+      }
+    }
+
+    // Seed client orders if empty
+    const orderSnap = await getDocs(collection(db, COLL_CLIENT_ORDERS));
+    if (orderSnap.empty) {
+      console.log('Seeding client orders...');
+      // Tuesday scheduled order
+      const nextTuesday = new Date();
+      nextTuesday.setDate(nextTuesday.getDate() + ((2 + 7 - nextTuesday.getDay()) % 7 || 7));
+      const tuesdayStr = nextTuesday.toISOString().split('T')[0];
+
+      const initialOrders = [
+        {
+          id: 'ord_1',
+          clientName: 'علي للترقية (Ali)',
+          bonNo: '00123/2026',
+          deliveryDate: tuesdayStr,
+          status: 'pending',
+          items: '50 براطفورس، 10 ممتص صدمات، 30 تيل فرامل هندي',
+          createdAt: new Date().toISOString(),
+          notes: 'يرجى التنبيه وتجهيز الطلب قبل يوم الثلاثاء!'
+        },
+        {
+          id: 'ord_2',
+          clientName: 'محل الأخوة بوزريعة',
+          bonNo: '00124/2026',
+          deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0], // tomorrow
+          status: 'preparing',
+          items: '15 فلتر زيت، 10 طقم دبرياج صيني',
+          createdAt: new Date().toISOString(),
+          notes: 'الزبون مستعجل جداً'
+        }
+      ];
+      for (const ord of initialOrders) {
+        await setDocSafe(doc(db, COLL_CLIENT_ORDERS, ord.id), ord);
+      }
+    }
+
+    // Seed client debts if empty
+    const debtSnap = await getDocs(collection(db, COLL_CLIENT_DEBTS));
+    if (debtSnap.empty) {
+      console.log('Seeding client debts...');
+      const initialDebts = [
+        {
+          id: 'debt_1',
+          clientName: 'أحمد البويرة',
+          amount: 150000,
+          dueDate: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0], // 5 days overdue
+          status: 'unpaid',
+          createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
+          notes: 'فاتورة قطع الغيار لشهر جوان - تأخر في السداد'
+        },
+        {
+          id: 'debt_2',
+          clientName: 'محل الرضا قسنطينة',
+          amount: 85000,
+          dueDate: new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0], // 10 days in future
+          status: 'unpaid',
+          createdAt: new Date().toISOString(),
+          notes: 'باقي بون طلبيات هندي'
+        }
+      ];
+      for (const d of initialDebts) {
+        await setDocSafe(doc(db, COLL_CLIENT_DEBTS, d.id), d);
+      }
+    }
+
+    // Seed camion routes if empty
+    const routeSnap = await getDocs(collection(db, COLL_CAMION_ROUTES));
+    if (routeSnap.empty) {
+      console.log('Seeding camion routes...');
+      const initialRoutes = [
+        {
+          id: 'route_1',
+          dayOfWeek: 'الأحد',
+          routePath: 'البليدة - الجزائر العاصمة',
+          driverName: 'عمي عيسى',
+          clients: [
+            { id: 'c_1', name: 'محل النور - البليدة', location: 'البليدة وسط', phone: '0550123456', calledStatus: 'not_called', notes: 'يأخذ طلبيات زيت وفلاتر' },
+            { id: 'c_2', name: 'قطع غيار السلام - الحراش', location: 'الحراش', phone: '0661223344', calledStatus: 'order_taken', notes: 'تم أخذ الطلبية بنجاح' }
+          ]
+        },
+        {
+          id: 'route_2',
+          dayOfWeek: 'الإثنين',
+          routePath: 'المدية - عين بوسيف',
+          driverName: 'عمي عيسى',
+          clients: [
+            { id: 'c_3', name: 'شاب شينوا - المدية', location: 'المدية وسط', phone: '0770987654', calledStatus: 'not_called', notes: 'يتطلب الاتصال الأحد مساءً' }
+          ]
+        },
+        {
+          id: 'route_3',
+          dayOfWeek: 'الثلاثاء',
+          routePath: 'بومرداس - رغاية',
+          driverName: 'عمي عيسى',
+          clients: [
+            { id: 'c_4', name: 'محل الأخوة رغاية', location: 'رغاية', phone: '0555998877', calledStatus: 'called_no_answer', notes: 'إعادة الاتصال لتأكيد الطلب صباح الاثنين' }
+          ]
+        }
+      ];
+      for (const r of initialRoutes) {
+        await setDocSafe(doc(db, COLL_CAMION_ROUTES, r.id), r);
+      }
+    }
+
+    // Seed supplier alerts if empty
+    const supplierSnap = await getDocs(collection(db, COLL_SUPPLIER_ALERTS));
+    if (supplierSnap.empty) {
+      console.log('Seeding supplier alerts...');
+      const initialSuppliers = [
+        {
+          id: 'sup_1',
+          supplierName: 'مستورد الشينوا الذهبي',
+          type: 'merchandise_error',
+          description: 'نقص 5 علب تيل فرامل في الحاوية الأخيرة المستلمة',
+          isResolved: false,
+          createdAt: new Date().toISOString(),
+          dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]
+        },
+        {
+          id: 'sup_2',
+          supplierName: 'قطع غيار الاتحاد (مستورد)',
+          type: 'debt',
+          description: 'تسديد دفعة فاتورة الاستيراد بقيمة 800,000 دج',
+          isResolved: false,
+          createdAt: new Date().toISOString(),
+          dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
+        }
+      ];
+      for (const s of initialSuppliers) {
+        await setDocSafe(doc(db, COLL_SUPPLIER_ALERTS, s.id), s);
+      }
+    }
+
   } catch (error) {
     console.error('Error seeding firestore:', error);
   }
@@ -94,7 +298,7 @@ export function subscribeToCollection<T>(
 // Individual Set/Delete helpers to make syncing seamless
 export async function saveUserToFirestore(user: AppUser) {
   const userDoc = doc(db, COLL_USERS, user.uid);
-  await setDoc(userDoc, user, { merge: true });
+  await setDocSafe(userDoc, user, { merge: true });
 }
 
 export async function deleteUserFromFirestore(uid: string) {
@@ -102,7 +306,7 @@ export async function deleteUserFromFirestore(uid: string) {
 }
 
 export async function saveCategoryToFirestore(category: CompanyCategory) {
-  await setDoc(doc(db, COLL_CATEGORIES, category.id), category, { merge: true });
+  await setDocSafe(doc(db, COLL_CATEGORIES, category.id), category, { merge: true });
 }
 
 export async function deleteCategoryFromFirestore(id: string) {
@@ -110,17 +314,81 @@ export async function deleteCategoryFromFirestore(id: string) {
 }
 
 export async function saveTaskToFirestore(task: CompanyTask) {
-  await setDoc(doc(db, COLL_TASKS, task.id), task, { merge: true });
+  await setDocSafe(doc(db, COLL_TASKS, task.id), task, { merge: true });
+}
+
+export async function deleteTaskFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_TASKS, id));
 }
 
 export async function saveExpenseToFirestore(expense: CompanyExpense) {
-  await setDoc(doc(db, COLL_EXPENSES, expense.id), expense, { merge: true });
+  await setDocSafe(doc(db, COLL_EXPENSES, expense.id), expense, { merge: true });
+}
+
+export async function deleteExpenseFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_EXPENSES, id));
 }
 
 export async function saveNotificationToFirestore(notification: CompanyNotification) {
-  await setDoc(doc(db, COLL_NOTIFICATIONS, notification.id), notification, { merge: true });
+  await setDocSafe(doc(db, COLL_NOTIFICATIONS, notification.id), notification, { merge: true });
 }
 
 export async function deleteNotificationFromFirestore(id: string) {
   await deleteDoc(doc(db, COLL_NOTIFICATIONS, id));
 }
+
+export async function saveAttendanceToFirestore(attendance: AttendanceRecord) {
+  await setDocSafe(doc(db, COLL_ATTENDANCE, attendance.id), attendance, { merge: true });
+}
+
+export async function saveChatToFirestore(chat: ChatMessage) {
+  await setDocSafe(doc(db, COLL_CHAT, chat.id), chat, { merge: true });
+}
+
+// Collections for specialized wholesale auto parts operations
+export const COLL_TRANSFERS = 'transfers';
+export const COLL_CLIENT_ORDERS = 'client_orders';
+export const COLL_CLIENT_DEBTS = 'client_debts';
+export const COLL_CAMION_ROUTES = 'camion_routes';
+export const COLL_SUPPLIER_ALERTS = 'supplier_alerts';
+
+export async function saveTransferToFirestore(transfer: any) {
+  await setDocSafe(doc(db, COLL_TRANSFERS, transfer.id), transfer, { merge: true });
+}
+
+export async function deleteTransferFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_TRANSFERS, id));
+}
+
+export async function saveClientOrderToFirestore(order: any) {
+  await setDocSafe(doc(db, COLL_CLIENT_ORDERS, order.id), order, { merge: true });
+}
+
+export async function deleteClientOrderFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_CLIENT_ORDERS, id));
+}
+
+export async function saveClientDebtToFirestore(debt: any) {
+  await setDocSafe(doc(db, COLL_CLIENT_DEBTS, debt.id), debt, { merge: true });
+}
+
+export async function deleteClientDebtFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_CLIENT_DEBTS, id));
+}
+
+export async function saveCamionRouteToFirestore(route: any) {
+  await setDocSafe(doc(db, COLL_CAMION_ROUTES, route.id), route, { merge: true });
+}
+
+export async function deleteCamionRouteFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_CAMION_ROUTES, id));
+}
+
+export async function saveSupplierAlertToFirestore(alert: any) {
+  await setDocSafe(doc(db, COLL_SUPPLIER_ALERTS, alert.id), alert, { merge: true });
+}
+
+export async function deleteSupplierAlertFromFirestore(id: string) {
+  await deleteDoc(doc(db, COLL_SUPPLIER_ALERTS, id));
+}
+
