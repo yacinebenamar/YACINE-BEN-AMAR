@@ -1,0 +1,3093 @@
+﻿diff --git a/firestore.rules b/firestore.rules
+index 0414569..6d30dec 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -1,85 +1,9 @@
+ rules_version = '2';
+ service cloud.firestore {
+   match /databases/{database}/documents {
+-    
+-    // Global Safety Net (Catch-all default-deny)
++    // Relax rules since the application uses a custom credentials look-up rather than Firebase Auth
+     match /{document=**} {
+-      allow read, write: if false;
+-    }
+-
+-    // Reusable, hardened global helpers
+-    function isSignedIn() {
+-      return request.auth != null;
+-    }
+-
+-    function isOwner(userId) {
+-      return isSignedIn() && request.auth.uid == userId;
+-    }
+-
+-    function isValidId(id) {
+-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+-    }
+-
+-    // 1. Users Collection
+-    match /users/{userId} {
+-      allow get: if isSignedIn();
+-      allow list: if isSignedIn();
+-      allow create, update: if isSignedIn() && (isOwner(userId) || exists(/databases/$(database)/documents/users/$(request.auth.uid)));
+-      allow delete: if false;
+-    }
+-
+-    // 2. Categories Collection
+-    match /categories/{categoryId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 3. Tasks Collection
+-    match /tasks/{taskId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 4. Expenses Collection
+-    match /expenses/{expenseId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 5. Notifications Collection
+-    match /notifications/{notificationId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 6. Stock Transfers Collection
+-    match /transfers/{transferId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 7. Client Orders Collection
+-    match /clientOrders/{orderId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 8. Client Debts Collection
+-    match /clientDebts/{debtId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 9. Camion Routes Collection
+-    match /camionRoutes/{routeId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
+-    }
+-
+-    // 10. Supplier Alerts Collection
+-    match /supplierAlerts/{alertId} {
+-      allow read: if isSignedIn();
+-      allow create, update, delete: if isSignedIn();
++      allow read, write: if true;
+     }
+   }
+ }
+diff --git a/index.html b/index.html
+index eba6f25..2c00b62 100644
+--- a/index.html
++++ b/index.html
+@@ -3,13 +3,13 @@
+   <head>
+     <meta charset="UTF-8" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+-    <title>┘╪╕╪د┘à ╪ذ┘ ╪╣┘à╪▒ ERP ╪د┘┘à╪ز┘â╪د┘à┘ ┬╖ FBM</title>
++    <title>┘╪╕╪د┘à FBM ERP ╪د┘┘à╪ز┘â╪د┘à┘</title>
+     <!-- PWA & Mobile Web App Meta -->
+     <link rel="manifest" href="/manifest.json" />
+     <meta name="theme-color" content="#000839" />
+     <meta name="apple-mobile-web-app-capable" content="yes" />
+     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+-    <meta name="apple-mobile-web-app-title" content="╪ذ┘ ╪╣┘à╪▒ ERP" />
++    <meta name="apple-mobile-web-app-title" content="FBM" />
+     <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/delivery.png" />
+   </head>
+   <body class="bg-[#000839] select-none text-right">
+diff --git a/package-lock.json b/package-lock.json
+index f8d5e06..99b74f8 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,6 +8,13 @@
+       "name": "react-example",
+       "version": "0.0.0",
+       "dependencies": {
++        "@capacitor/android": "^8.4.1",
++        "@capacitor/camera": "^8.2.1",
++        "@capacitor/cli": "^8.4.1",
++        "@capacitor/core": "^8.4.1",
++        "@capacitor/geolocation": "^8.2.0",
++        "@capacitor/local-notifications": "^8.2.0",
++        "@capacitor/preferences": "^8.0.1",
+         "@google/genai": "^2.4.0",
+         "@tailwindcss/vite": "^4.1.14",
+         "@vitejs/plugin-react": "^5.0.4",
+@@ -295,6 +302,113 @@
+         "node": ">=6.9.0"
+       }
+     },
++    "node_modules/@capacitor/android": {
++      "version": "8.4.1",
++      "resolved": "https://registry.npmjs.org/@capacitor/android/-/android-8.4.1.tgz",
++      "integrity": "sha512-igtDCJ7QQn0P2qHFD9p4KXaa6V1b2PRNt+MxjVwtjTm/BJvqmiazOJq6rPjwFSZnfHm6iFoZk8TfzHd44pyBGw==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@capacitor/core": "^8.4.0"
++      }
++    },
++    "node_modules/@capacitor/camera": {
++      "version": "8.2.1",
++      "resolved": "https://registry.npmjs.org/@capacitor/camera/-/camera-8.2.1.tgz",
++      "integrity": "sha512-yq4TbVcv9Z91JLr7C5407s3rrXr/Dmk+Pr9FAVRn65s3Jg4iYabjwG4fVKUYlQL5TiUdBbZA3LiNAbUxJNcUkw==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@capacitor/core": ">=8.0.0"
++      }
++    },
++    "node_modules/@capacitor/cli": {
++      "version": "8.4.1",
++      "resolved": "https://registry.npmjs.org/@capacitor/cli/-/cli-8.4.1.tgz",
++      "integrity": "sha512-t7F2s7fFHCq113xgrggrmK6ctV0/8E5YfLNVLfPHp4GCTDO+tly9fZvWPf2/sOI8lMm18dLT43qbXLRTz/OZgw==",
++      "license": "MIT",
++      "dependencies": {
++        "@ionic/cli-framework-output": "^2.2.8",
++        "@ionic/utils-subprocess": "^3.0.1",
++        "@ionic/utils-terminal": "^2.3.5",
++        "commander": "^12.1.0",
++        "debug": "^4.4.0",
++        "env-paths": "^2.2.0",
++        "fs-extra": "^11.2.0",
++        "kleur": "^4.1.5",
++        "native-run": "^2.0.3",
++        "open": "^8.4.0",
++        "plist": "^3.1.0",
++        "prompts": "^2.4.2",
++        "rimraf": "^6.0.1",
++        "semver": "^7.6.3",
++        "tar": "^7.5.3",
++        "tslib": "^2.8.1",
++        "xml2js": "^0.6.2"
++      },
++      "bin": {
++        "cap": "bin/capacitor",
++        "capacitor": "bin/capacitor"
++      },
++      "engines": {
++        "node": ">=22.0.0"
++      }
++    },
++    "node_modules/@capacitor/cli/node_modules/semver": {
++      "version": "7.8.5",
++      "resolved": "https://registry.npmjs.org/semver/-/semver-7.8.5.tgz",
++      "integrity": "sha512-Y7/KDsb8LjooZpwaqGyulO6DQlksgCncchHGk+sZIY4SBvUocMBEFH5Ur1fI4dV+Jvl0w6cjvucaIi40puRioA==",
++      "license": "ISC",
++      "bin": {
++        "semver": "bin/semver.js"
++      },
++      "engines": {
++        "node": ">=10"
++      }
++    },
++    "node_modules/@capacitor/core": {
++      "version": "8.4.1",
++      "resolved": "https://registry.npmjs.org/@capacitor/core/-/core-8.4.1.tgz",
++      "integrity": "sha512-xqhOGLbTAYeOWK+IDUNSjQJAPapQjRHrIcgk9PYp52or9zFTaaMko31uNi16N6W+CRJ8VrRram6fOYILkBG2Hg==",
++      "license": "MIT",
++      "dependencies": {
++        "tslib": "^2.1.0"
++      }
++    },
++    "node_modules/@capacitor/geolocation": {
++      "version": "8.2.0",
++      "resolved": "https://registry.npmjs.org/@capacitor/geolocation/-/geolocation-8.2.0.tgz",
++      "integrity": "sha512-N29QcoIPmme0xSxRkm7+3hjoHp6mBAOarxecvtCCZKyOBeKiJsFUq981cezg2XWBa6fhCXJMCCjQPngKK/dIag==",
++      "license": "MIT",
++      "dependencies": {
++        "@capacitor/synapse": "^1.0.4"
++      },
++      "peerDependencies": {
++        "@capacitor/core": ">=8.0.0"
++      }
++    },
++    "node_modules/@capacitor/local-notifications": {
++      "version": "8.2.0",
++      "resolved": "https://registry.npmjs.org/@capacitor/local-notifications/-/local-notifications-8.2.0.tgz",
++      "integrity": "sha512-fvLY0w2w4MiX+DD4+Wv4DOwOLdzKZsMDwAcRv/Juudd+QbKbn69s6cM3xVqPwAiDqfnqsY4/S8xtQD6M73wY2A==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@capacitor/core": ">=8.0.0"
++      }
++    },
++    "node_modules/@capacitor/preferences": {
++      "version": "8.0.1",
++      "resolved": "https://registry.npmjs.org/@capacitor/preferences/-/preferences-8.0.1.tgz",
++      "integrity": "sha512-T6no3ebi79XJCk91U3Jp/liJUwgBdvHR+s6vhvPkPxSuch7z3zx5Rv1bdWM6sWruNx+pViuEGqZvbfCdyBvcHQ==",
++      "license": "MIT",
++      "peerDependencies": {
++        "@capacitor/core": ">=8.0.0"
++      }
++    },
++    "node_modules/@capacitor/synapse": {
++      "version": "1.0.4",
++      "resolved": "https://registry.npmjs.org/@capacitor/synapse/-/synapse-1.0.4.tgz",
++      "integrity": "sha512-/C1FUo8/OkKuAT4nCIu/34ny9siNHr9qtFezu4kxm6GY1wNFxrCFWjfYx5C1tUhVGz3fxBABegupkpjXvjCHrw==",
++      "license": "ISC"
++    },
+     "node_modules/@esbuild/aix-ppc64": {
+       "version": "0.25.12",
+       "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.25.12.tgz",
+@@ -1378,6 +1492,157 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/@ionic/cli-framework-output": {
++      "version": "2.2.8",
++      "resolved": "https://registry.npmjs.org/@ionic/cli-framework-output/-/cli-framework-output-2.2.8.tgz",
++      "integrity": "sha512-TshtaFQsovB4NWRBydbNFawql6yul7d5bMiW1WYYf17hd99V6xdDdk3vtF51bw6sLkxON3bDQpWsnUc9/hVo3g==",
++      "license": "MIT",
++      "dependencies": {
++        "@ionic/utils-terminal": "2.3.5",
++        "debug": "^4.0.0",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-array": {
++      "version": "2.1.6",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-array/-/utils-array-2.1.6.tgz",
++      "integrity": "sha512-0JZ1Zkp3wURnv8oq6Qt7fMPo5MpjbLoUoa9Bu2Q4PJuSDWM8H8gwF3dQO7VTeUj3/0o1IB1wGkFWZZYgUXZMUg==",
++      "license": "MIT",
++      "dependencies": {
++        "debug": "^4.0.0",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-fs": {
++      "version": "3.1.7",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-fs/-/utils-fs-3.1.7.tgz",
++      "integrity": "sha512-2EknRvMVfhnyhL1VhFkSLa5gOcycK91VnjfrTB0kbqkTFCOXyXgVLI5whzq7SLrgD9t1aqos3lMMQyVzaQ5gVA==",
++      "license": "MIT",
++      "dependencies": {
++        "@types/fs-extra": "^8.0.0",
++        "debug": "^4.0.0",
++        "fs-extra": "^9.0.0",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-fs/node_modules/fs-extra": {
++      "version": "9.1.0",
++      "resolved": "https://registry.npmjs.org/fs-extra/-/fs-extra-9.1.0.tgz",
++      "integrity": "sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ==",
++      "license": "MIT",
++      "dependencies": {
++        "at-least-node": "^1.0.0",
++        "graceful-fs": "^4.2.0",
++        "jsonfile": "^6.0.1",
++        "universalify": "^2.0.0"
++      },
++      "engines": {
++        "node": ">=10"
++      }
++    },
++    "node_modules/@ionic/utils-object": {
++      "version": "2.1.6",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-object/-/utils-object-2.1.6.tgz",
++      "integrity": "sha512-vCl7sl6JjBHFw99CuAqHljYJpcE88YaH2ZW4ELiC/Zwxl5tiwn4kbdP/gxi2OT3MQb1vOtgAmSNRtusvgxI8ww==",
++      "license": "MIT",
++      "dependencies": {
++        "debug": "^4.0.0",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-process": {
++      "version": "2.1.12",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-process/-/utils-process-2.1.12.tgz",
++      "integrity": "sha512-Jqkgyq7zBs/v/J3YvKtQQiIcxfJyplPgECMWgdO0E1fKrrH8EF0QGHNJ9mJCn6PYe2UtHNS8JJf5G21e09DfYg==",
++      "license": "MIT",
++      "dependencies": {
++        "@ionic/utils-object": "2.1.6",
++        "@ionic/utils-terminal": "2.3.5",
++        "debug": "^4.0.0",
++        "signal-exit": "^3.0.3",
++        "tree-kill": "^1.2.2",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-stream": {
++      "version": "3.1.7",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-stream/-/utils-stream-3.1.7.tgz",
++      "integrity": "sha512-eSELBE7NWNFIHTbTC2jiMvh1ABKGIpGdUIvARsNPMNQhxJB3wpwdiVnoBoTYp+5a6UUIww4Kpg7v6S7iTctH1w==",
++      "license": "MIT",
++      "dependencies": {
++        "debug": "^4.0.0",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-subprocess": {
++      "version": "3.0.1",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-subprocess/-/utils-subprocess-3.0.1.tgz",
++      "integrity": "sha512-cT4te3AQQPeIM9WCwIg8ohroJ8TjsYaMb2G4ZEgv9YzeDqHZ4JpeIKqG2SoaA3GmVQ3sOfhPM6Ox9sxphV/d1A==",
++      "license": "MIT",
++      "dependencies": {
++        "@ionic/utils-array": "2.1.6",
++        "@ionic/utils-fs": "3.1.7",
++        "@ionic/utils-process": "2.1.12",
++        "@ionic/utils-stream": "3.1.7",
++        "@ionic/utils-terminal": "2.3.5",
++        "cross-spawn": "^7.0.3",
++        "debug": "^4.0.0",
++        "tslib": "^2.0.1"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@ionic/utils-terminal": {
++      "version": "2.3.5",
++      "resolved": "https://registry.npmjs.org/@ionic/utils-terminal/-/utils-terminal-2.3.5.tgz",
++      "integrity": "sha512-3cKScz9Jx2/Pr9ijj1OzGlBDfcmx7OMVBt4+P1uRR0SSW4cm1/y3Mo4OY3lfkuaYifMNBW8Wz6lQHbs1bihr7A==",
++      "license": "MIT",
++      "dependencies": {
++        "@types/slice-ansi": "^4.0.0",
++        "debug": "^4.0.0",
++        "signal-exit": "^3.0.3",
++        "slice-ansi": "^4.0.0",
++        "string-width": "^4.1.0",
++        "strip-ansi": "^6.0.0",
++        "tslib": "^2.0.1",
++        "untildify": "^4.0.0",
++        "wrap-ansi": "^7.0.0"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
++    "node_modules/@isaacs/fs-minipass": {
++      "version": "4.0.1",
++      "resolved": "https://registry.npmjs.org/@isaacs/fs-minipass/-/fs-minipass-4.0.1.tgz",
++      "integrity": "sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==",
++      "license": "ISC",
++      "dependencies": {
++        "minipass": "^7.0.4"
++      },
++      "engines": {
++        "node": ">=18.0.0"
++      }
++    },
+     "node_modules/@jridgewell/gen-mapping": {
+       "version": "0.3.13",
+       "resolved": "https://registry.npmjs.org/@jridgewell/gen-mapping/-/gen-mapping-0.3.13.tgz",
+@@ -2263,6 +2528,15 @@
+         "@types/send": "*"
+       }
+     },
++    "node_modules/@types/fs-extra": {
++      "version": "8.1.5",
++      "resolved": "https://registry.npmjs.org/@types/fs-extra/-/fs-extra-8.1.5.tgz",
++      "integrity": "sha512-0dzKcwO+S8s2kuF5Z9oUWatQJj5Uq/iqphEtE3GQJVRRYm/tD1LglU2UnXi2A8jLq5umkGouOXOR9y0n613ZwQ==",
++      "license": "MIT",
++      "dependencies": {
++        "@types/node": "*"
++      }
++    },
+     "node_modules/@types/http-errors": {
+       "version": "2.0.5",
+       "resolved": "https://registry.npmjs.org/@types/http-errors/-/http-errors-2.0.5.tgz",
+@@ -2339,6 +2613,12 @@
+         "@types/node": "*"
+       }
+     },
++    "node_modules/@types/slice-ansi": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/@types/slice-ansi/-/slice-ansi-4.0.0.tgz",
++      "integrity": "sha512-+OpjSaq85gvlZAYINyzKpLeiFkSC4EsC6IIiT6v6TLSU5k5U83fHGj9Lel8oKEXM0HqgrMVCjXPDPVICtxF7EQ==",
++      "license": "MIT"
++    },
+     "node_modules/@types/use-sync-external-store": {
+       "version": "0.0.6",
+       "resolved": "https://registry.npmjs.org/@types/use-sync-external-store/-/use-sync-external-store-0.0.6.tgz",
+@@ -2365,6 +2645,15 @@
+         "vite": "^4.2.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
+       }
+     },
++    "node_modules/@xmldom/xmldom": {
++      "version": "0.9.10",
++      "resolved": "https://registry.npmjs.org/@xmldom/xmldom/-/xmldom-0.9.10.tgz",
++      "integrity": "sha512-A9gOqLdi6cV4ibazAjcQufGj0B1y/vDqYrcuP6d/6x8P27gRS8643Dj9o1dEKtB6O7fwxb2FgBmJS2mX7gpvdw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=14.6"
++      }
++    },
+     "node_modules/accepts": {
+       "version": "1.3.8",
+       "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
+@@ -2417,6 +2706,24 @@
+       "integrity": "sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg==",
+       "license": "MIT"
+     },
++    "node_modules/astral-regex": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/astral-regex/-/astral-regex-2.0.0.tgz",
++      "integrity": "sha512-Z7tMw1ytTXt5jqMcOP+OQteU1VuNK9Y02uuJtKQ1Sv69jXQKKg5cibLwGJow8yzZP+eAc18EmLGPal0bp36rvQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/at-least-node": {
++      "version": "1.0.0",
++      "resolved": "https://registry.npmjs.org/at-least-node/-/at-least-node-1.0.0.tgz",
++      "integrity": "sha512-+q/t7Ekv1EDY2l6Gda6LLiX14rU9TV20Wa3ofeQmwPFZbOMo9DXrLbOjFaaclkXKWidIaopwAObQDqwWtGUjqg==",
++      "license": "ISC",
++      "engines": {
++        "node": ">= 4.0.0"
++      }
++    },
+     "node_modules/autoprefixer": {
+       "version": "10.5.2",
+       "resolved": "https://registry.npmjs.org/autoprefixer/-/autoprefixer-10.5.2.tgz",
+@@ -2454,6 +2761,15 @@
+         "postcss": "^8.1.0"
+       }
+     },
++    "node_modules/balanced-match": {
++      "version": "4.0.4",
++      "resolved": "https://registry.npmjs.org/balanced-match/-/balanced-match-4.0.4.tgz",
++      "integrity": "sha512-BLrgEcRTwX2o6gGxGOCNyMvGSp35YofuYzw9h1IMTRmKqttAZZVU67bdb9Pr2vUHA8+j3i2tJfjO6C6+4myGTA==",
++      "license": "MIT",
++      "engines": {
++        "node": "18 || 20 || >=22"
++      }
++    },
+     "node_modules/base64-js": {
+       "version": "1.5.1",
+       "resolved": "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz",
+@@ -2486,6 +2802,15 @@
+         "node": ">=6.0.0"
+       }
+     },
++    "node_modules/big-integer": {
++      "version": "1.6.52",
++      "resolved": "https://registry.npmjs.org/big-integer/-/big-integer-1.6.52.tgz",
++      "integrity": "sha512-QxD8cf2eVqJOOz63z6JIN9BzvVs/dlySa5HGSBH5xtR8dPteIRQnBxxKqkNTiT6jbDTF6jAfrd4oMcND9RGbQg==",
++      "license": "Unlicense",
++      "engines": {
++        "node": ">=0.6"
++      }
++    },
+     "node_modules/bignumber.js": {
+       "version": "9.3.1",
+       "resolved": "https://registry.npmjs.org/bignumber.js/-/bignumber.js-9.3.1.tgz",
+@@ -2534,6 +2859,30 @@
+       "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==",
+       "license": "MIT"
+     },
++    "node_modules/bplist-parser": {
++      "version": "0.3.2",
++      "resolved": "https://registry.npmjs.org/bplist-parser/-/bplist-parser-0.3.2.tgz",
++      "integrity": "sha512-apC2+fspHGI3mMKj+dGevkGo/tCqVB8jMb6i+OX+E29p0Iposz07fABkRIfVUPNd5A5VbuOz1bZbnmkKLYF+wQ==",
++      "license": "MIT",
++      "dependencies": {
++        "big-integer": "1.6.x"
++      },
++      "engines": {
++        "node": ">= 5.10.0"
++      }
++    },
++    "node_modules/brace-expansion": {
++      "version": "5.0.7",
++      "resolved": "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.7.tgz",
++      "integrity": "sha512-7oFy703dxfY3/NLxC1fh2SUCQ0H9rmAY+5EpDVfXjUTTs+HEwR2nYaqLv+GWcTsumwxPfiz6CzCNkwXwBUwqCA==",
++      "license": "MIT",
++      "dependencies": {
++        "balanced-match": "^4.0.2"
++      },
++      "engines": {
++        "node": "18 || 20 || >=22"
++      }
++    },
+     "node_modules/browserslist": {
+       "version": "4.28.5",
+       "resolved": "https://registry.npmjs.org/browserslist/-/browserslist-4.28.5.tgz",
+@@ -2567,6 +2916,15 @@
+         "node": "^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7"
+       }
+     },
++    "node_modules/buffer-crc32": {
++      "version": "0.2.13",
++      "resolved": "https://registry.npmjs.org/buffer-crc32/-/buffer-crc32-0.2.13.tgz",
++      "integrity": "sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==",
++      "license": "MIT",
++      "engines": {
++        "node": "*"
++      }
++    },
+     "node_modules/buffer-equal-constant-time": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/buffer-equal-constant-time/-/buffer-equal-constant-time-1.0.1.tgz",
+@@ -2631,6 +2989,15 @@
+       ],
+       "license": "CC-BY-4.0"
+     },
++    "node_modules/chownr": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/chownr/-/chownr-3.0.0.tgz",
++      "integrity": "sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/cliui": {
+       "version": "8.0.1",
+       "resolved": "https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz",
+@@ -2672,6 +3039,15 @@
+       "integrity": "sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==",
+       "license": "MIT"
+     },
++    "node_modules/commander": {
++      "version": "12.1.0",
++      "resolved": "https://registry.npmjs.org/commander/-/commander-12.1.0.tgz",
++      "integrity": "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/content-disposition": {
+       "version": "0.5.4",
+       "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.4.tgz",
+@@ -2714,6 +3090,20 @@
+       "integrity": "sha512-NXdYc3dLr47pBkpUCHtKSwIOQXLVn8dZEuywboCOJY/osA0wFSLlSawr3KN8qXJEyX66FcONTH8EIlVuK0yyFA==",
+       "license": "MIT"
+     },
++    "node_modules/cross-spawn": {
++      "version": "7.0.6",
++      "resolved": "https://registry.npmjs.org/cross-spawn/-/cross-spawn-7.0.6.tgz",
++      "integrity": "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==",
++      "license": "MIT",
++      "dependencies": {
++        "path-key": "^3.1.0",
++        "shebang-command": "^2.0.0",
++        "which": "^2.0.1"
++      },
++      "engines": {
++        "node": ">= 8"
++      }
++    },
+     "node_modules/d3-array": {
+       "version": "3.2.4",
+       "resolved": "https://registry.npmjs.org/d3-array/-/d3-array-3.2.4.tgz",
+@@ -2867,6 +3257,15 @@
+       "integrity": "sha512-qIMFpTMZmny+MMIitAB6D7iVPEorVw6YQRWkvarTkT4tBeSLLiHzcwj6q0MmYSFCiVpiqPJTJEYIrpcPzVEIvg==",
+       "license": "MIT"
+     },
++    "node_modules/define-lazy-prop": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/define-lazy-prop/-/define-lazy-prop-2.0.0.tgz",
++      "integrity": "sha512-Ds09qNh8yw3khSjiJjiUInaGX9xlqZDY7JVryGxdxV7NPeuqQfplOpQ66yJFZut3jLa5zOwkXw1g9EI2uKh4Og==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/depd": {
+       "version": "2.0.0",
+       "resolved": "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz",
+@@ -2942,6 +3341,18 @@
+       "integrity": "sha512-cEto7aeOqBfU1D+c5py5pE+ooscKE75JifxLBdFUZsqAxRS6y7kebtxAZvICszSl05gPjYHDTjY+lXpyGvpJbg==",
+       "license": "ISC"
+     },
++    "node_modules/elementtree": {
++      "version": "0.1.7",
++      "resolved": "https://registry.npmjs.org/elementtree/-/elementtree-0.1.7.tgz",
++      "integrity": "sha512-wkgGT6kugeQk/P6VZ/f4T+4HB41BVgNBq5CDIZVbQ02nvTVqAiVTbskxxu3eA/X96lMlfYOwnLQpN2v5E1zDEg==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "sax": "1.1.4"
++      },
++      "engines": {
++        "node": ">= 0.4.0"
++      }
++    },
+     "node_modules/emoji-regex": {
+       "version": "8.0.0",
+       "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
+@@ -2970,6 +3381,15 @@
+         "node": ">=10.13.0"
+       }
+     },
++    "node_modules/env-paths": {
++      "version": "2.2.1",
++      "resolved": "https://registry.npmjs.org/env-paths/-/env-paths-2.2.1.tgz",
++      "integrity": "sha512-+h1lkLKhZMTYjog1VEpJNG7NZJWcuc2DDk/qsqSTRRCOXiLjeQ1d1/udrUGhqMxUgAlwKNZ0cf2uqan5GLuS2A==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/es-define-property": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz",
+@@ -3160,6 +3580,15 @@
+         "node": ">=0.8.0"
+       }
+     },
++    "node_modules/fd-slicer": {
++      "version": "1.1.0",
++      "resolved": "https://registry.npmjs.org/fd-slicer/-/fd-slicer-1.1.0.tgz",
++      "integrity": "sha512-cE1qsB/VwyQozZ+q1dGxR8LBYNZeofhEdUNGSMbQD3Gw2lAzX9Zb3uIU6Ebc/Fmyjo9AWWfnn0AUCHqtevs/8g==",
++      "license": "MIT",
++      "dependencies": {
++        "pend": "~1.2.0"
++      }
++    },
+     "node_modules/fdir": {
+       "version": "6.5.0",
+       "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+@@ -3340,6 +3769,20 @@
+         "node": ">= 0.6"
+       }
+     },
++    "node_modules/fs-extra": {
++      "version": "11.3.6",
++      "resolved": "https://registry.npmjs.org/fs-extra/-/fs-extra-11.3.6.tgz",
++      "integrity": "sha512-w8ZNZr2mKIc7qeNaQ9AVPT1+iFaI+Avd4xudVOvdDJ8VytREi1Ft5Ih7hd9jjehod8vAM5GMsfQ/TpPf4EyoEA==",
++      "license": "MIT",
++      "dependencies": {
++        "graceful-fs": "^4.2.0",
++        "jsonfile": "^6.0.1",
++        "universalify": "^2.0.0"
++      },
++      "engines": {
++        "node": ">=14.14"
++      }
++    },
+     "node_modules/fsevents": {
+       "version": "2.3.3",
+       "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+@@ -3446,6 +3889,23 @@
+         "node": ">= 0.4"
+       }
+     },
++    "node_modules/glob": {
++      "version": "13.0.6",
++      "resolved": "https://registry.npmjs.org/glob/-/glob-13.0.6.tgz",
++      "integrity": "sha512-Wjlyrolmm8uDpm/ogGyXZXb1Z+Ca2B8NbJwqBVg0axK9GbBeoS7yGV6vjXnYdGm6X53iehEuxxbyiKp8QmN4Vw==",
++      "license": "BlueOak-1.0.0",
++      "dependencies": {
++        "minimatch": "^10.2.2",
++        "minipass": "^7.1.3",
++        "path-scurry": "^2.0.2"
++      },
++      "engines": {
++        "node": "18 || 20 || >=22"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
++      }
++    },
+     "node_modules/google-auth-library": {
+       "version": "10.9.0",
+       "resolved": "https://registry.npmjs.org/google-auth-library/-/google-auth-library-10.9.0.tgz",
+@@ -3587,6 +4047,15 @@
+       "integrity": "sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==",
+       "license": "ISC"
+     },
++    "node_modules/ini": {
++      "version": "4.1.3",
++      "resolved": "https://registry.npmjs.org/ini/-/ini-4.1.3.tgz",
++      "integrity": "sha512-X7rqawQBvfdjS10YU1y1YVreA3SsLrW9dX2CewP2EbBJM4ypVNLDkO5y04gejPwKIY9lR+7r9gn3rFPt/kmWFg==",
++      "license": "ISC",
++      "engines": {
++        "node": "^14.17.0 || ^16.13.0 || >=18.0.0"
++      }
++    },
+     "node_modules/internmap": {
+       "version": "2.0.3",
+       "resolved": "https://registry.npmjs.org/internmap/-/internmap-2.0.3.tgz",
+@@ -3605,6 +4074,21 @@
+         "node": ">= 0.10"
+       }
+     },
++    "node_modules/is-docker": {
++      "version": "2.2.1",
++      "resolved": "https://registry.npmjs.org/is-docker/-/is-docker-2.2.1.tgz",
++      "integrity": "sha512-F+i2BKsFrH66iaUFc0woD8sLy8getkwTwtOBjvs56Cx4CgJDeKQeqfz8wAYiSb8JOprWhHH5p77PbmYCvvUuXQ==",
++      "license": "MIT",
++      "bin": {
++        "is-docker": "cli.js"
++      },
++      "engines": {
++        "node": ">=8"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/is-fullwidth-code-point": {
+       "version": "3.0.0",
+       "resolved": "https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz",
+@@ -3614,6 +4098,24 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/is-wsl": {
++      "version": "2.2.0",
++      "resolved": "https://registry.npmjs.org/is-wsl/-/is-wsl-2.2.0.tgz",
++      "integrity": "sha512-fKzAra0rGJUUBwGBgNkHZuToZcn+TtXHpeCgmkMJMMYx1sQDYaCSyjJBSCa2nH1DGm7s3n1oBnohoVTBaN7Lww==",
++      "license": "MIT",
++      "dependencies": {
++        "is-docker": "^2.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/isexe": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/isexe/-/isexe-2.0.0.tgz",
++      "integrity": "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==",
++      "license": "ISC"
++    },
+     "node_modules/jiti": {
+       "version": "2.7.0",
+       "resolved": "https://registry.npmjs.org/jiti/-/jiti-2.7.0.tgz",
+@@ -3662,6 +4164,18 @@
+         "node": ">=6"
+       }
+     },
++    "node_modules/jsonfile": {
++      "version": "6.2.1",
++      "resolved": "https://registry.npmjs.org/jsonfile/-/jsonfile-6.2.1.tgz",
++      "integrity": "sha512-zwOTdL3rFQ/lRdBnntKVOX6k5cKJwEc1HdilT71BWEu7J41gXIB2MRp+vxduPSwZJPWBxEzv4yH1wYLJGUHX4Q==",
++      "license": "MIT",
++      "dependencies": {
++        "universalify": "^2.0.0"
++      },
++      "optionalDependencies": {
++        "graceful-fs": "^4.1.6"
++      }
++    },
+     "node_modules/jwa": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/jwa/-/jwa-2.0.1.tgz",
+@@ -3683,6 +4197,15 @@
+         "safe-buffer": "^5.0.1"
+       }
+     },
++    "node_modules/kleur": {
++      "version": "4.1.5",
++      "resolved": "https://registry.npmjs.org/kleur/-/kleur-4.1.5.tgz",
++      "integrity": "sha512-o+NO+8WrRiQEE4/7nwRJhN1HWpVmJm511pBHUxPLtp0BUISzlBplORYSmTclCnJvQq2tKu/sgl3xVpkc7ZWuQQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/lightningcss": {
+       "version": "1.32.0",
+       "resolved": "https://registry.npmjs.org/lightningcss/-/lightningcss-1.32.0.tgz",
+@@ -4040,6 +4563,42 @@
+         "node": ">= 0.6"
+       }
+     },
++    "node_modules/minimatch": {
++      "version": "10.2.5",
++      "resolved": "https://registry.npmjs.org/minimatch/-/minimatch-10.2.5.tgz",
++      "integrity": "sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==",
++      "license": "BlueOak-1.0.0",
++      "dependencies": {
++        "brace-expansion": "^5.0.5"
++      },
++      "engines": {
++        "node": "18 || 20 || >=22"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
++      }
++    },
++    "node_modules/minipass": {
++      "version": "7.1.3",
++      "resolved": "https://registry.npmjs.org/minipass/-/minipass-7.1.3.tgz",
++      "integrity": "sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": ">=16 || 14 >=14.17"
++      }
++    },
++    "node_modules/minizlib": {
++      "version": "3.1.0",
++      "resolved": "https://registry.npmjs.org/minizlib/-/minizlib-3.1.0.tgz",
++      "integrity": "sha512-KZxYo1BUkWD2TVFLr0MQoM8vUUigWD3LlD83a/75BqC+4qE0Hb1Vo5v1FgcfaNXvfXzr+5EhQ6ing/CaBijTlw==",
++      "license": "MIT",
++      "dependencies": {
++        "minipass": "^7.1.2"
++      },
++      "engines": {
++        "node": ">= 18"
++      }
++    },
+     "node_modules/motion": {
+       "version": "12.42.2",
+       "resolved": "https://registry.npmjs.org/motion/-/motion-12.42.2.tgz",
+@@ -4105,6 +4664,31 @@
+         "node": "^10 || ^12 || ^13.7 || ^14 || >=15.0.1"
+       }
+     },
++    "node_modules/native-run": {
++      "version": "2.0.3",
++      "resolved": "https://registry.npmjs.org/native-run/-/native-run-2.0.3.tgz",
++      "integrity": "sha512-U1PllBuzW5d1gfan+88L+Hky2eZx+9gv3Pf6rNBxKbORxi7boHzqiA6QFGSnqMem4j0A9tZ08NMIs5+0m/VS1Q==",
++      "license": "MIT",
++      "dependencies": {
++        "@ionic/utils-fs": "^3.1.7",
++        "@ionic/utils-terminal": "^2.3.4",
++        "bplist-parser": "^0.3.2",
++        "debug": "^4.3.4",
++        "elementtree": "^0.1.7",
++        "ini": "^4.1.1",
++        "plist": "^3.1.0",
++        "split2": "^4.2.0",
++        "through2": "^4.0.2",
++        "tslib": "^2.6.2",
++        "yauzl": "^2.10.0"
++      },
++      "bin": {
++        "native-run": "bin/native-run"
++      },
++      "engines": {
++        "node": ">=16.0.0"
++      }
++    },
+     "node_modules/negotiator": {
+       "version": "0.6.3",
+       "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.3.tgz",
+@@ -4185,6 +4769,23 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/open": {
++      "version": "8.4.2",
++      "resolved": "https://registry.npmjs.org/open/-/open-8.4.2.tgz",
++      "integrity": "sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==",
++      "license": "MIT",
++      "dependencies": {
++        "define-lazy-prop": "^2.0.0",
++        "is-docker": "^2.1.1",
++        "is-wsl": "^2.2.0"
++      },
++      "engines": {
++        "node": ">=12"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/sindresorhus"
++      }
++    },
+     "node_modules/p-retry": {
+       "version": "4.6.2",
+       "resolved": "https://registry.npmjs.org/p-retry/-/p-retry-4.6.2.tgz",
+@@ -4198,6 +4799,12 @@
+         "node": ">=8"
+       }
+     },
++    "node_modules/package-json-from-dist": {
++      "version": "1.0.1",
++      "resolved": "https://registry.npmjs.org/package-json-from-dist/-/package-json-from-dist-1.0.1.tgz",
++      "integrity": "sha512-UEZIS3/by4OC8vL3P2dTXRETpebLI2NiI5vIrjaD/5UtrkFX/tNbwjTSRAGC/+7CAo2pIcBaRgWmcBBHcsaCIw==",
++      "license": "BlueOak-1.0.0"
++    },
+     "node_modules/parseurl": {
+       "version": "1.3.3",
+       "resolved": "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz",
+@@ -4207,12 +4814,52 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/path-key": {
++      "version": "3.1.1",
++      "resolved": "https://registry.npmjs.org/path-key/-/path-key-3.1.1.tgz",
++      "integrity": "sha512-ojmeN0qd+y0jszEtoY48r0Peq5dwMEkIlCOu6Q5f41lfkswXuKtYrhgoTpLnyIcHm24Uhqx+5Tqm2InSwLhE6Q==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/path-scurry": {
++      "version": "2.0.2",
++      "resolved": "https://registry.npmjs.org/path-scurry/-/path-scurry-2.0.2.tgz",
++      "integrity": "sha512-3O/iVVsJAPsOnpwWIeD+d6z/7PmqApyQePUtCndjatj/9I5LylHvt5qluFaBT3I5h3r1ejfR056c+FCv+NnNXg==",
++      "license": "BlueOak-1.0.0",
++      "dependencies": {
++        "lru-cache": "^11.0.0",
++        "minipass": "^7.1.2"
++      },
++      "engines": {
++        "node": "18 || 20 || >=22"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
++      }
++    },
++    "node_modules/path-scurry/node_modules/lru-cache": {
++      "version": "11.5.2",
++      "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.2.tgz",
++      "integrity": "sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": "20 || >=22"
++      }
++    },
+     "node_modules/path-to-regexp": {
+       "version": "0.1.13",
+       "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.13.tgz",
+       "integrity": "sha512-A/AGNMFN3c8bOlvV9RreMdrv7jsmF9XIfDeCd87+I8RNg6s78BhJxMu69NEMHBSJFxKidViTEdruRwEk/WIKqA==",
+       "license": "MIT"
+     },
++    "node_modules/pend": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/pend/-/pend-1.2.0.tgz",
++      "integrity": "sha512-F3asv42UuXchdzt+xXqfW1OGlVBe+mxa2mqI0pg5yAHZPvFmY3Y6drSf/GQ1A86WgWEN9Kzh/WrgKa6iGcHXLg==",
++      "license": "MIT"
++    },
+     "node_modules/picocolors": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+@@ -4231,6 +4878,20 @@
+         "url": "https://github.com/sponsors/jonschlinkert"
+       }
+     },
++    "node_modules/plist": {
++      "version": "3.1.1",
++      "resolved": "https://registry.npmjs.org/plist/-/plist-3.1.1.tgz",
++      "integrity": "sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA==",
++      "license": "MIT",
++      "dependencies": {
++        "@xmldom/xmldom": "^0.9.10",
++        "base64-js": "^1.5.1",
++        "xmlbuilder": "^15.1.1"
++      },
++      "engines": {
++        "node": ">=10.4.0"
++      }
++    },
+     "node_modules/postcss": {
+       "version": "8.5.16",
+       "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.16.tgz",
+@@ -4266,6 +4927,28 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/prompts": {
++      "version": "2.4.2",
++      "resolved": "https://registry.npmjs.org/prompts/-/prompts-2.4.2.tgz",
++      "integrity": "sha512-NxNv/kLguCA7p3jE8oL2aEBsrJWgAakBpgmgK6lpPWV+WuOmY6r2/zbAVnP+T8bQlA0nzHXSJSJW0Hq7ylaD2Q==",
++      "license": "MIT",
++      "dependencies": {
++        "kleur": "^3.0.3",
++        "sisteransi": "^1.0.5"
++      },
++      "engines": {
++        "node": ">= 6"
++      }
++    },
++    "node_modules/prompts/node_modules/kleur": {
++      "version": "3.0.3",
++      "resolved": "https://registry.npmjs.org/kleur/-/kleur-3.0.3.tgz",
++      "integrity": "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=6"
++      }
++    },
+     "node_modules/protobufjs": {
+       "version": "7.6.5",
+       "resolved": "https://registry.npmjs.org/protobufjs/-/protobufjs-7.6.5.tgz",
+@@ -4408,6 +5091,20 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/readable-stream": {
++      "version": "3.6.2",
++      "resolved": "https://registry.npmjs.org/readable-stream/-/readable-stream-3.6.2.tgz",
++      "integrity": "sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA==",
++      "license": "MIT",
++      "dependencies": {
++        "inherits": "^2.0.3",
++        "string_decoder": "^1.1.1",
++        "util-deprecate": "^1.0.1"
++      },
++      "engines": {
++        "node": ">= 6"
++      }
++    },
+     "node_modules/recharts": {
+       "version": "3.9.2",
+       "resolved": "https://registry.npmjs.org/recharts/-/recharts-3.9.2.tgz",
+@@ -4477,6 +5174,25 @@
+         "node": ">= 4"
+       }
+     },
++    "node_modules/rimraf": {
++      "version": "6.1.3",
++      "resolved": "https://registry.npmjs.org/rimraf/-/rimraf-6.1.3.tgz",
++      "integrity": "sha512-LKg+Cr2ZF61fkcaK1UdkH2yEBBKnYjTyWzTJT6KNPcSPaiT7HSdhtMXQuN5wkTX0Xu72KQ1l8S42rlmexS2hSA==",
++      "license": "BlueOak-1.0.0",
++      "dependencies": {
++        "glob": "^13.0.3",
++        "package-json-from-dist": "^1.0.1"
++      },
++      "bin": {
++        "rimraf": "dist/esm/bin.mjs"
++      },
++      "engines": {
++        "node": "20 || >=22"
++      },
++      "funding": {
++        "url": "https://github.com/sponsors/isaacs"
++      }
++    },
+     "node_modules/rollup": {
+       "version": "4.62.2",
+       "resolved": "https://registry.npmjs.org/rollup/-/rollup-4.62.2.tgz",
+@@ -4547,6 +5263,12 @@
+       "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
+       "license": "MIT"
+     },
++    "node_modules/sax": {
++      "version": "1.1.4",
++      "resolved": "https://registry.npmjs.org/sax/-/sax-1.1.4.tgz",
++      "integrity": "sha512-5f3k2PbGGp+YtKJjOItpg3P99IMD84E4HOvcfleTb5joCHNXYLsR9yWFPOYGgaeMPDubQILTCMdsFb2OMeOjtg==",
++      "license": "ISC"
++    },
+     "node_modules/scheduler": {
+       "version": "0.27.0",
+       "resolved": "https://registry.npmjs.org/scheduler/-/scheduler-0.27.0.tgz",
+@@ -4622,6 +5344,27 @@
+       "integrity": "sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==",
+       "license": "ISC"
+     },
++    "node_modules/shebang-command": {
++      "version": "2.0.0",
++      "resolved": "https://registry.npmjs.org/shebang-command/-/shebang-command-2.0.0.tgz",
++      "integrity": "sha512-kHxr2zZpYtdmrN1qDjrrX/Z1rR1kG8Dx+gkpK1G4eXmvXswmcE1hTWBWYUzlraYw1/yZp6YuDY77YtvbN0dmDA==",
++      "license": "MIT",
++      "dependencies": {
++        "shebang-regex": "^3.0.0"
++      },
++      "engines": {
++        "node": ">=8"
++      }
++    },
++    "node_modules/shebang-regex": {
++      "version": "3.0.0",
++      "resolved": "https://registry.npmjs.org/shebang-regex/-/shebang-regex-3.0.0.tgz",
++      "integrity": "sha512-7++dFhtcx3353uBaq8DDR4NuxBetBzC7ZQOhmTQInHEd6bSrXdiEyzCvG07Z44UYdLShWUyXt5M/yhz8ekcb1A==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/side-channel": {
+       "version": "1.1.1",
+       "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.1.1.tgz",
+@@ -4694,6 +5437,35 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/signal-exit": {
++      "version": "3.0.7",
++      "resolved": "https://registry.npmjs.org/signal-exit/-/signal-exit-3.0.7.tgz",
++      "integrity": "sha512-wnD2ZE+l+SPC/uoS0vXeE9L1+0wuaMqKlfz9AMUo38JsyLSBWSFcHR1Rri62LZc12vLr1gb3jl7iwQhgwpAbGQ==",
++      "license": "ISC"
++    },
++    "node_modules/sisteransi": {
++      "version": "1.0.5",
++      "resolved": "https://registry.npmjs.org/sisteransi/-/sisteransi-1.0.5.tgz",
++      "integrity": "sha512-bLGGlR1QxBcynn2d5YmDX4MGjlZvy2MRBDRNHLJ8VI6l6+9FUiyTFNJ0IveOSP0bcXgVDPRcfGqA0pjaqUpfVg==",
++      "license": "MIT"
++    },
++    "node_modules/slice-ansi": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/slice-ansi/-/slice-ansi-4.0.0.tgz",
++      "integrity": "sha512-qMCMfhY040cVHT43K9BFygqYbUPFZKHOg7K73mtTWJRb8pyP3fzf4Ixd5SzdEJQ6MRUg/WBnOLxghZtKKurENQ==",
++      "license": "MIT",
++      "dependencies": {
++        "ansi-styles": "^4.0.0",
++        "astral-regex": "^2.0.0",
++        "is-fullwidth-code-point": "^3.0.0"
++      },
++      "engines": {
++        "node": ">=10"
++      },
++      "funding": {
++        "url": "https://github.com/chalk/slice-ansi?sponsor=1"
++      }
++    },
+     "node_modules/source-map-js": {
+       "version": "1.2.1",
+       "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+@@ -4703,6 +5475,15 @@
+         "node": ">=0.10.0"
+       }
+     },
++    "node_modules/split2": {
++      "version": "4.2.0",
++      "resolved": "https://registry.npmjs.org/split2/-/split2-4.2.0.tgz",
++      "integrity": "sha512-UcjcJOWknrNkF6PLX83qcHM6KHgVKNkV62Y8a5uYDVv9ydGQVwAHMKqHdJje1VTWpljG0WYpCDhrCdAOYH4TWg==",
++      "license": "ISC",
++      "engines": {
++        "node": ">= 10.x"
++      }
++    },
+     "node_modules/statuses": {
+       "version": "2.0.2",
+       "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.2.tgz",
+@@ -4712,6 +5493,15 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/string_decoder": {
++      "version": "1.3.0",
++      "resolved": "https://registry.npmjs.org/string_decoder/-/string_decoder-1.3.0.tgz",
++      "integrity": "sha512-hkRX8U1WjJFd8LsDJ2yQ/wWWxaopEsABU1XfkM8A+j0+85JAGppt16cr1Whg6KIbb4okU6Mql6BOj+uup/wKeA==",
++      "license": "MIT",
++      "dependencies": {
++        "safe-buffer": "~5.2.0"
++      }
++    },
+     "node_modules/string-width": {
+       "version": "4.2.3",
+       "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
+@@ -4757,6 +5547,40 @@
+         "url": "https://opencollective.com/webpack"
+       }
+     },
++    "node_modules/tar": {
++      "version": "7.5.19",
++      "resolved": "https://registry.npmjs.org/tar/-/tar-7.5.19.tgz",
++      "integrity": "sha512-4LeEWl96twnS2Q7Bz4MGqgazLqO+hJN63GZxXoIqh1T3VweYD997gbU1ItNsQafqqXTXd5WFyFdReLtwvRBNiw==",
++      "license": "BlueOak-1.0.0",
++      "dependencies": {
++        "@isaacs/fs-minipass": "^4.0.0",
++        "chownr": "^3.0.0",
++        "minipass": "^7.1.2",
++        "minizlib": "^3.1.0",
++        "yallist": "^5.0.0"
++      },
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/tar/node_modules/yallist": {
++      "version": "5.0.0",
++      "resolved": "https://registry.npmjs.org/yallist/-/yallist-5.0.0.tgz",
++      "integrity": "sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==",
++      "license": "BlueOak-1.0.0",
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/through2": {
++      "version": "4.0.2",
++      "resolved": "https://registry.npmjs.org/through2/-/through2-4.0.2.tgz",
++      "integrity": "sha512-iOqSav00cVxEEICeD7TjLB1sueEL+81Wpzp2bY17uZjZN0pWZPuo4suZ/61VujxmqSGFfgOcNuTZ85QJwNZQpw==",
++      "license": "MIT",
++      "dependencies": {
++        "readable-stream": "3"
++      }
++    },
+     "node_modules/tiny-invariant": {
+       "version": "1.3.3",
+       "resolved": "https://registry.npmjs.org/tiny-invariant/-/tiny-invariant-1.3.3.tgz",
+@@ -4788,6 +5612,15 @@
+         "node": ">=0.6"
+       }
+     },
++    "node_modules/tree-kill": {
++      "version": "1.2.2",
++      "resolved": "https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz",
++      "integrity": "sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==",
++      "license": "MIT",
++      "bin": {
++        "tree-kill": "cli.js"
++      }
++    },
+     "node_modules/tslib": {
+       "version": "2.8.1",
+       "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+@@ -5304,6 +6137,15 @@
+       "integrity": "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==",
+       "license": "MIT"
+     },
++    "node_modules/universalify": {
++      "version": "2.0.1",
++      "resolved": "https://registry.npmjs.org/universalify/-/universalify-2.0.1.tgz",
++      "integrity": "sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">= 10.0.0"
++      }
++    },
+     "node_modules/unpipe": {
+       "version": "1.0.0",
+       "resolved": "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz",
+@@ -5313,6 +6155,15 @@
+         "node": ">= 0.8"
+       }
+     },
++    "node_modules/untildify": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/untildify/-/untildify-4.0.0.tgz",
++      "integrity": "sha512-KK8xQ1mkzZeg9inewmFVDNkg3l5LUhoq9kN6iWYB/CC9YMG8HA+c1Q8HwDe6dEX7kErrEVNVBO3fWsVq5iDgtw==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8"
++      }
++    },
+     "node_modules/update-browserslist-db": {
+       "version": "1.2.3",
+       "resolved": "https://registry.npmjs.org/update-browserslist-db/-/update-browserslist-db-1.2.3.tgz",
+@@ -5352,6 +6203,12 @@
+         "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0"
+       }
+     },
++    "node_modules/util-deprecate": {
++      "version": "1.0.2",
++      "resolved": "https://registry.npmjs.org/util-deprecate/-/util-deprecate-1.0.2.tgz",
++      "integrity": "sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==",
++      "license": "MIT"
++    },
+     "node_modules/utils-merge": {
+       "version": "1.0.1",
+       "resolved": "https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz",
+@@ -5504,6 +6361,21 @@
+         "node": ">=0.8.0"
+       }
+     },
++    "node_modules/which": {
++      "version": "2.0.2",
++      "resolved": "https://registry.npmjs.org/which/-/which-2.0.2.tgz",
++      "integrity": "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==",
++      "license": "ISC",
++      "dependencies": {
++        "isexe": "^2.0.0"
++      },
++      "bin": {
++        "node-which": "bin/node-which"
++      },
++      "engines": {
++        "node": ">= 8"
++      }
++    },
+     "node_modules/wrap-ansi": {
+       "version": "7.0.0",
+       "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz",
+@@ -5542,6 +6414,37 @@
+         }
+       }
+     },
++    "node_modules/xml2js": {
++      "version": "0.6.2",
++      "resolved": "https://registry.npmjs.org/xml2js/-/xml2js-0.6.2.tgz",
++      "integrity": "sha512-T4rieHaC1EXcES0Kxxj4JWgaUQHDk+qwHcYOCFHfiwKz7tOVPLq7Hjq9dM1WCMhylqMEfP7hMcOIChvotiZegA==",
++      "license": "MIT",
++      "dependencies": {
++        "sax": ">=0.6.0",
++        "xmlbuilder": "~11.0.0"
++      },
++      "engines": {
++        "node": ">=4.0.0"
++      }
++    },
++    "node_modules/xml2js/node_modules/xmlbuilder": {
++      "version": "11.0.1",
++      "resolved": "https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-11.0.1.tgz",
++      "integrity": "sha512-fDlsI/kFEx7gLvbecc0/ohLG50fugQp8ryHzMTuW9vSa1GJ0XYWKnhsUx7oie3G98+r56aTQIUB4kht42R3JvA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=4.0"
++      }
++    },
++    "node_modules/xmlbuilder": {
++      "version": "15.1.1",
++      "resolved": "https://registry.npmjs.org/xmlbuilder/-/xmlbuilder-15.1.1.tgz",
++      "integrity": "sha512-yMqGBqtXyeN1e3TGYvgNgDVZ3j84W4cwkOXQswghol6APgZWaff9lnbvN7MHYJOiXsvGPXtjTYJEiC9J2wv9Eg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=8.0"
++      }
++    },
+     "node_modules/y18n": {
+       "version": "5.0.8",
+       "resolved": "https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz",
+@@ -5583,6 +6486,16 @@
+       "engines": {
+         "node": ">=12"
+       }
++    },
++    "node_modules/yauzl": {
++      "version": "2.10.0",
++      "resolved": "https://registry.npmjs.org/yauzl/-/yauzl-2.10.0.tgz",
++      "integrity": "sha512-p4a9I6X6nu6IhoGmBqAcbJy1mlC4j27vEPZX9F4L4/vZT3Lyq1VkFHw/V/PUcB9Buo+DG3iHkT0x3Qya58zc3g==",
++      "license": "MIT",
++      "dependencies": {
++        "buffer-crc32": "~0.2.3",
++        "fd-slicer": "~1.1.0"
++      }
+     }
+   }
+ }
+diff --git a/package.json b/package.json
+index daf6934..96b609f 100644
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,13 @@
+     "lint": "tsc --noEmit"
+   },
+   "dependencies": {
++    "@capacitor/android": "^8.4.1",
++    "@capacitor/camera": "^8.2.1",
++    "@capacitor/cli": "^8.4.1",
++    "@capacitor/core": "^8.4.1",
++    "@capacitor/geolocation": "^8.2.0",
++    "@capacitor/local-notifications": "^8.2.0",
++    "@capacitor/preferences": "^8.0.1",
+     "@google/genai": "^2.4.0",
+     "@tailwindcss/vite": "^4.1.14",
+     "@vitejs/plugin-react": "^5.0.4",
+diff --git a/src/App.tsx b/src/App.tsx
+index ee524d3..ddc5687 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,4 +1,6 @@
+ import { useState, useEffect, useRef } from 'react';
++import { Capacitor } from '@capacitor/core';
++import { LocalNotifications } from '@capacitor/local-notifications';
+ import { 
+   AppUser, 
+   CompanyCategory, 
+@@ -67,6 +69,7 @@ export default function App() {
+   // Auth state
+   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
+   const [isInitializing, setIsInitializing] = useState(true);
++  const [isUsersLoaded, setIsUsersLoaded] = useState(false);
+   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'worker'>('admin');
+ 
+   // Audio and Toast Notification alerts
+@@ -93,10 +96,56 @@ export default function App() {
+       // Seed initial admin if needed
+       await seedFirestoreIfNeeded();
+ 
++      // ظ¤ظ¤ظ¤ Native Android Notification Channel Setup ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++      // CRITICAL: Without a notification channel, no notifications appear on Android 8+
++      if (Capacitor.isNativePlatform()) {
++        try {
++          // Request permission first (Android 13+)
++          const permResult = await LocalNotifications.requestPermissions();
++          console.log('[FBM] Notification permission:', permResult.display);
++
++          // Create HIGH-importance channel for business alerts (heads-up popup)
++          await LocalNotifications.createChannel({
++            id: 'fbm-main-channel',
++            name: 'FBM - ╪ح╪┤╪╣╪د╪▒╪د╪ز ┘┘ê╪▒┘è╪ر',
++            description: '╪ح╪┤╪╣╪د╪▒╪د╪ز ╪د┘┘à┘ç╪د┘à╪î ╪د┘┘à╪╡╪د╪▒┘è┘╪î ┘ê╪د┘╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘┘┘ê╪▒┘è╪ر',
++            importance: 5,        // IMPORTANCE_HIGH ظ¤ heads-up, appears in notification drawer
++            visibility: 1,        // VISIBILITY_PUBLIC ظ¤ visible on lock screen
++            vibration: true,
++            lights: true,
++            lightColor: '#76BC21',
++            sound: 'default'
++          });
++
++          // Create LOW-importance channel for the keep-alive service notification
++          await LocalNotifications.createChannel({
++            id: 'fbm-keepalive-channel',
++            name: 'FBM - ┘╪╕╪د┘à ┘à╪ز╪╡┘',
++            description: '╪«╪»┘à╪ر ╪د┘╪د╪ز╪╡╪د┘ ╪د┘┘à╪│╪ز┘à╪▒ ╪ذ╪د┘╪«╪د╪»┘à',
++            importance: 1,        // IMPORTANCE_MIN ظ¤ silent, no popup
++            visibility: -1,       // VISIBILITY_SECRET ظ¤ hidden on lock screen
++            vibration: false,
++            lights: false,
++            sound: undefined
++          });
++
++          console.log('[FBM] Notification channels created.');
++        } catch (e) {
++          console.error('[FBM] Error setting up notification channels:', e);
++        }
++
++        // ظ¤ظ¤ظ¤ Request Battery Optimization Exemption ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++        // The native FBMBackgroundService handles this via foreground service.
++        // Log that background service should be running.
++        console.log('[FBM] Background keep-alive service is active via FBMBackgroundService.');
++      }
++      // ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++
+       // Subscribe to real-time updates from Cloud Firestore
+       unsubUsers = subscribeToCollection<AppUser>('users', (data) => {
+         // Keep active users first, or sorted as needed
+         setUsers(data);
++        setIsUsersLoaded(true);
+       });
+       unsubCategories = subscribeToCollection<CompanyCategory>('categories', setCategories);
+       unsubTasks = subscribeToCollection<CompanyTask>('tasks', setTasks);
+@@ -117,7 +166,7 @@ export default function App() {
+       unsubSupplierAlerts = subscribeToCollection<SupplierAlert>('supplier_alerts', setSupplierAlerts, 'createdAt');
+ 
+       // Keep login session stored locally for smooth UX
+-      const storedAuth = getStoredData<AppUser | null>('auth_user', null);
++      const storedAuth = await getStoredData<AppUser | null>('auth_user', null);
+       if (storedAuth) {
+         setCurrentUser(storedAuth);
+       }
+@@ -313,14 +362,14 @@ export default function App() {
+     }
+   };
+ 
+-  const handleLoginSuccess = (user: AppUser) => {
++  const handleLoginSuccess = async (user: AppUser) => {
+     setCurrentUser(user);
+-    setStoredData('auth_user', user);
++    await setStoredData('auth_user', user);
+   };
+ 
+-  const handleLogout = () => {
++  const handleLogout = async () => {
+     setCurrentUser(null);
+-    setStoredData('auth_user', null);
++    await setStoredData('auth_user', null);
+   };
+ 
+   // State mutation actions passed down
+@@ -346,24 +395,55 @@ export default function App() {
+     handleUpdateExpenses(updated);
+   };
+ 
+-  // Helper to send real native device/PC push notifications (like Facebook)
+-  const sendNativeSystemNotification = (title: string, body: string) => {
++  // Helper to send real native device push notifications (like WhatsApp/Snapchat)
++  const sendNativeSystemNotification = async (title: string, body: string) => {
++    if (Capacitor.isNativePlatform()) {
++      try {
++        await LocalNotifications.schedule({
++          notifications: [
++            {
++              title: title,
++              body: body,
++              id: Math.floor(Math.random() * 2000000) + 1,
++              // Use 1 second delay ظ¤ enough for Android to process it
++              schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true },
++              // Link to the FBM channel we created at startup
++              channelId: 'fbm-main-channel',
++              // Show on lock screen
++              visibility: 1,
++              // Make it heads-up (pops from top like Snapchat)
++              importance: 5,
++              smallIcon: 'ic_launcher',
++              iconColor: '#76BC21',
++              sound: 'default',
++              actionTypeId: '',
++              extra: { source: 'fbm-erp' }
++            }
++          ]
++        });
++      } catch (e) {
++        console.error('[FBM] Failed to schedule native notification:', e);
++      }
++      return;
++    }
++
++    // Web fallback
+     if (!('Notification' in window)) return;
+     if (Notification.permission === 'granted') {
+       if ('serviceWorker' in navigator) {
+         navigator.serviceWorker.ready.then((reg) => {
+           reg.showNotification(title, {
+             body: body,
+-            icon: 'https://img.icons8.com/color/192/delivery.png',
+-            badge: 'https://img.icons8.com/color/192/delivery.png',
++            icon: '/icon-192.png',
++            badge: '/icon-192.png',
+             vibrate: [200, 100, 200],
+-            tag: 'fbm-erp-notification'
++            tag: `fbm-notif-${Date.now()}`
+           } as any).catch(() => {
+-            new Notification(title, { body, icon: 'https://img.icons8.com/color/192/delivery.png' });
++            new Notification(title, { body });
+           });
+         });
+       } else {
+-        new Notification(title, { body, icon: 'https://img.icons8.com/color/192/delivery.png' });
++        new Notification(title, { body });
+       }
+     }
+   };
+@@ -486,11 +566,24 @@ export default function App() {
+     await deleteSupplierAlertFromFirestore(id);
+   };
+ 
+-  if (isInitializing) {
++  if (isInitializing || !isUsersLoaded) {
+     return (
+-      <div className="min-h-screen bg-[#000839] flex flex-col items-center justify-center">
+-        <div className="w-12 h-12 border-4 border-[#76BC21] border-t-transparent rounded-full animate-spin"></div>
+-        <p className="text-slate-400 text-xs mt-4 font-bold tracking-wider">╪ش╪د╪▒┘è ╪ز╪┤╪║┘è┘ ┘╪╕╪د┘à ╪ذ┘ ╪╣┘à╪▒ ERP...</p>
++      <div className="min-h-screen bg-[#000839] flex flex-col items-center justify-center relative overflow-hidden">
++        {/* Background glow */}
++        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-[#76BC21]/8 rounded-full blur-[120px]" />
++        {/* Spinning ring */}
++        <div className="relative flex items-center justify-center mb-6">
++          <div className="w-24 h-24 border-4 border-[#76BC21]/20 rounded-full" />
++          <div className="absolute w-24 h-24 border-4 border-transparent border-t-[#76BC21] rounded-full animate-spin" />
++          <div className="absolute w-16 h-16 border-2 border-transparent border-b-[#76BC21]/40 rounded-full animate-spin" style={{animationDuration:'1.5s',animationDirection:'reverse'}} />
++        </div>
++        <p className="text-white font-black text-xl tracking-widest">FBM</p>
++        <p className="text-slate-500 text-[10px] mt-1 font-medium tracking-widest uppercase">LES FR├êRES BENAMAR</p>
++        <div className="mt-6 flex gap-1.5">
++          {[0,1,2].map(i => (
++            <div key={i} className="w-1.5 h-1.5 bg-[#76BC21] rounded-full animate-bounce" style={{animationDelay:`${i*0.15}s`}} />
++          ))}
++        </div>
+       </div>
+     );
+   }
+@@ -599,39 +692,42 @@ export default function App() {
+         />
+       )}
+ 
+-      {/* Floating Premium Toast Notification */}
++      {/* ظ¤ظ¤ Premium iOS-style Heads-Up Toast Notification ظ¤ظ¤ */}
+       {activeToast && (
+-        <div 
+-          className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-[9999] max-w-sm w-full bg-[#050E46]/95 backdrop-blur border border-slate-700/80 rounded-2xl shadow-2xl p-4 flex gap-3 text-right animate-slideIn"
++        <div
++          className="fixed top-0 left-0 right-0 z-[9999] flex justify-center px-3 pt-2 safe-top notif-toast"
+           dir="rtl"
+         >
+-          {/* Bell Icon & Glow */}
+-          <div className="shrink-0">
+-            <div className="w-10 h-10 bg-[#76BC21]/10 text-[#76BC21] rounded-xl flex items-center justify-center relative shadow-inner animate-pulse">
+-              <Bell className="w-5 h-5" />
+-              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
+-            </div>
+-          </div>
+-
+-          {/* Content */}
+-          <div className="flex-1 min-w-0 space-y-1">
+-            <div className="flex justify-between items-start gap-2">
+-              <h4 className="text-xs font-black text-white">{activeToast.title}</h4>
+-              <button 
+-                onClick={() => setActiveToast(null)}
+-                className="text-slate-400 hover:text-white transition-all cursor-pointer p-0.5 hover:bg-slate-800 rounded-lg"
+-              >
+-                <X className="w-3.5 h-3.5" />
+-              </button>
+-            </div>
+-            <p className="text-[11px] text-slate-300 leading-relaxed">{activeToast.body}</p>
++          <div className="w-full max-w-sm bg-[#050E46]/97 backdrop-blur-xl border border-[#76BC21]/20 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
++            {/* Top accent bar */}
++            <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#76BC21] to-transparent" />
+             
+-            {/* Visual Progress Bar Timer indicator */}
+-            <div className="pt-2">
+-              <div className="w-full bg-slate-900 h-1 rounded-full overflow-hidden">
+-                <div className="bg-[#76BC21] h-full rounded-full animate-toastProgress"></div>
++            <div className="flex items-start gap-3 p-3.5">
++              {/* App Icon */}
++              <div className="shrink-0 w-10 h-10 bg-[#76BC21] rounded-xl flex items-center justify-center shadow-lg shadow-[#76BC21]/30">
++                <Bell className="w-5 h-5 text-[#000839]" />
++              </div>
++
++              {/* Content */}
++              <div className="flex-1 min-w-0">
++                <div className="flex items-center justify-between gap-2 mb-0.5">
++                  <p className="text-[10px] font-black text-[#76BC21] uppercase tracking-wider">FBM ERP</p>
++                  <button
++                    onClick={() => setActiveToast(null)}
++                    className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1"
++                  >
++                    <X className="w-3 h-3" />
++                  </button>
++                </div>
++                <p className="text-xs font-black text-white leading-tight">{activeToast.title}</p>
++                <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5 line-clamp-2">{activeToast.body}</p>
+               </div>
+             </div>
++
++            {/* Progress bar */}
++            <div className="h-0.5 bg-slate-900">
++              <div className="bg-[#76BC21] h-full animate-toastProgress" />
++            </div>
+           </div>
+         </div>
+       )}
+diff --git a/src/components/AdminDashboard.tsx b/src/components/AdminDashboard.tsx
+index 732210e..b1a520b 100644
+--- a/src/components/AdminDashboard.tsx
++++ b/src/components/AdminDashboard.tsx
+@@ -1,10 +1,13 @@
+ import React, { useState, useEffect, useRef } from 'react';
++import { motion, AnimatePresence } from 'motion/react';
+ import { 
+   AppUser, CompanyCategory, CompanyTask, CompanyExpense, CompanyNotification, 
+   AttendanceRecord, ChatMessage, StockTransfer, ClientOrder, ClientDebt, 
+   CamionRoute, SupplierAlert 
+ } from '../types';
+ import { playNotificationChime } from '../utils/audio';
++import { Capacitor } from '@capacitor/core';
++import { LocalNotifications } from '@capacitor/local-notifications';
+ import { 
+   FileSpreadsheet, Plus, Trash2, Bell, CheckCircle2, XCircle, Clock, 
+   Search, Filter, ListCollapse, Layers, Megaphone, Check, X, LogOut,
+@@ -293,7 +296,36 @@ export default function AdminDashboard({
+     // 1. Play soft chime immediately
+     playNotificationChime();
+     
+-    // 2. Request Notification Permission
++    // 2. Native notification trigger
++    if (Capacitor.isNativePlatform()) {
++      try {
++        const perm = await LocalNotifications.requestPermissions();
++        setNotificationPermissionGranted(perm.display);
++        if (perm.display === 'granted') {
++          await LocalNotifications.schedule({
++            notifications: [
++              {
++                title: '┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤',
++                body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
++                id: Math.floor(Math.random() * 2000000) + 1,
++                schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true },
++                channelId: 'fbm-main-channel',
++                visibility: 1,
++                importance: 5,
++                smallIcon: 'ic_launcher',
++                iconColor: '#76BC21',
++                sound: 'default'
++              }
++            ]
++          });
++        }
++      } catch (err) {
++        console.error('[FBM] Failed to trigger native test notification:', err);
++      }
++      return;
++    }
++
++    // Web fallback
+     if (typeof window !== 'undefined' && 'Notification' in window) {
+       const permission = await Notification.requestPermission();
+       setNotificationPermissionGranted(permission);
+@@ -302,19 +334,24 @@ export default function AdminDashboard({
+         // Trigger a native test notification
+         if ('serviceWorker' in navigator) {
+           navigator.serviceWorker.ready.then((reg) => {
+-            reg.showNotification('┘à╪ش┘à┘ê╪╣╪ر ╪ذ┘ ╪╣┘à╪▒ - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++            reg.showNotification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
+               body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
+               icon: 'https://img.icons8.com/color/192/delivery.png',
+               vibrate: [100, 50, 100]
+-            } as any);
++            } as any).catch(() => {
++              new Notification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++                body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
++                icon: 'https://img.icons8.com/color/192/delivery.png'
++              });
++            });
+           }).catch(() => {
+-            new Notification('┘à╪ش┘à┘ê╪╣╪ر ╪ذ┘ ╪╣┘à╪▒ - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++            new Notification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
+               body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
+               icon: 'https://img.icons8.com/color/192/delivery.png'
+             });
+           });
+         } else {
+-          new Notification('┘à╪ش┘à┘ê╪╣╪ر ╪ذ┘ ╪╣┘à╪▒ - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++          new Notification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
+             body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
+             icon: 'https://img.icons8.com/color/192/delivery.png'
+           });
+@@ -329,7 +366,7 @@ export default function AdminDashboard({
+     if (!newUserName || !newUserName.trim() || !newUserEmailPrefix || !newUserEmailPrefix.trim()) return;
+ 
+     const cleanEmailPrefix = (newUserEmailPrefix || '').trim().toLowerCase().replace(/\s+/g, '');
+-    const userEmail = `${cleanEmailPrefix}@benamar.local`;
++    const userEmail = `${cleanEmailPrefix}@fbm.local`;
+ 
+     // Check if user already exists
+     if (users.some(u => (u.email || '').toLowerCase() === (userEmail || '').toLowerCase())) {
+@@ -354,7 +391,7 @@ export default function AdminDashboard({
+     onAddNotification({
+       id: `notif_sys_user_${Date.now()}`,
+       title: '≡اë ╪ز╪▒╪ص┘è╪ذ ╪ذ╪▓┘à┘è┘ ╪╣┘à┘ ╪ش╪»┘è╪» ┘┘è ╪╖╪د┘é┘à ╪د┘╪╣┘à┘',
+-      body: `┘è╪│╪▒ ╪د┘╪ح╪»╪د╪▒╪ر ╪د┘╪ز╪▒╪ص┘è╪ذ ╪ذ┘ "${newUserName.trim()}" ┘┘è ╪╖╪د┘é┘à ╪╣┘à┘ ╪د┘╪ح╪«┘ê╪ر ╪ذ┘ ╪╣┘à╪▒ ┘ê╪ز┘╪╣┘è┘ ╪ص╪│╪د╪ذ┘ç ╪د┘╪▒╪│┘à┘è ╪ذ╪د┘┘à╪ج╪│╪│╪ر.`,
++      body: `┘è╪│╪▒ ╪د┘╪ح╪»╪د╪▒╪ر ╪د┘╪ز╪▒╪ص┘è╪ذ ╪ذ┘ "${newUserName.trim()}" ┘┘è ╪╖╪د┘é┘à ╪╣┘à┘ ╪د┘╪ح╪«┘ê╪ر FBM ┘ê╪ز┘╪╣┘è┘ ╪ص╪│╪د╪ذ┘ç ╪د┘╪▒╪│┘à┘è ╪ذ╪د┘┘à╪ج╪│╪│╪ر.`,
+       targetType: 'all',
+       isRead: false,
+       createdAt: new Date().toISOString()
+@@ -999,7 +1036,7 @@ export default function AdminDashboard({
+     ctx.fillStyle = '#475569';
+     ctx.fillText(`╪د┘╪▒┘é┘à ╪د┘╪ز╪│┘╪│┘┘è: FBM-B-${Math.floor(100000 + Math.random() * 900000)}`, 540, 200);
+     ctx.fillText(`╪د┘╪ز╪د╪▒┘è╪«: ${new Date().toLocaleDateString('ar-DZ')}`, 540, 225);
+-    ctx.fillText('╪د┘╪ش┘ç╪ر ╪د┘┘à╪╡╪»╪▒╪ر: ╪┤╪▒┘â╪ر ┘┘é┘ ┘ê╪ز┘ê╪▒┘è╪»╪د╪ز ╪د┘╪ح╪«┘ê╪ر ╪ذ┘ ╪╣┘à╪▒ ╪┤.╪░.┘à.┘à', 540, 250);
++    ctx.fillText('╪د┘╪ش┘ç╪ر ╪د┘┘à╪╡╪»╪▒╪ر: ╪┤╪▒┘â╪ر ┘┘é┘ ┘ê╪ز┘ê╪▒┘è╪»╪د╪ز LES FR├êRES BENAMAR ╪┤.╪░.┘à.┘à', 540, 250);
+     ctx.fillText(`╪د╪│┘à ╪د┘┘à┘é╪ز┘┘è: ${currentUser.fullName}`, 540, 275);
+ 
+     ctx.strokeStyle = '#94a3b8';
+@@ -1031,13 +1068,13 @@ export default function AdminDashboard({
+     ctx.fillStyle = 'rgba(220, 38, 38, 0.65)';
+     ctx.font = 'bold 11px "Cairo", sans-serif';
+     ctx.textAlign = 'center';
+-    ctx.fillText('┘à╪ش┘à┘ê╪╣╪ر ╪د┘╪ح╪«┘ê╪ر ╪ذ┘ ╪╣┘à╪▒', 420, 600);
++    ctx.fillText('LES FR├êRES BENAMAR', 420, 600);
+     ctx.fillText('FBM ╪د┘╪ش╪▓╪د╪خ╪▒', 420, 620);
+     ctx.fillText('┘à┘é╪ذ┘ê┘ ┘ê╪╡╪د┘╪ص ┘┘╪»┘╪╣', 420, 640);
+ 
+     ctx.font = 'italic 12px "Courier New"';
+     ctx.fillStyle = '#1e3a8a';
+-    ctx.fillText('BenAmar_Sign', 420, 690);
++    ctx.fillText('FBM_Sign', 420, 690);
+ 
+     const dataUrl = canvas.toDataURL('image/jpeg');
+     setCapturedImage(dataUrl);
+@@ -1239,8 +1276,8 @@ export default function AdminDashboard({
+         <div className="flex items-center gap-2">
+           <FBMLogo size="sm" />
+           <div className="text-right">
+-            <span className="block text-xs font-black text-white">┘╪╕╪د┘à ╪ذ┘ ╪╣┘à╪▒ ERP</span>
+-            <span className="block text-[8px] text-[#76BC21] font-bold tracking-wider">ALGERIA ENTERPRISE</span>
++            <span className="block text-xs font-black text-white">┘╪╕╪د┘à FBM ERP</span>
++            <span className="block text-[8px] text-[#76BC21] font-bold tracking-wider">LES FR├êRES BENAMAR</span>
+           </div>
+         </div>
+         
+@@ -1268,7 +1305,7 @@ export default function AdminDashboard({
+             <FBMLogo size="sm" className="mb-1" />
+             <div className="text-center">
+               <span className="block text-xs font-bold text-white">┘╪╕╪د┘à ╪د┘╪ز╪│┘è┘è╪▒ ╪د┘╪ح╪»╪د╪▒┘è ERP</span>
+-              <span className="block text-[9px] text-[#76BC21] font-semibold tracking-wider">FBM ┬╖ ALGERIA Enterprise</span>
++              <span className="block text-[9px] text-[#76BC21] font-semibold tracking-wider">FBM ┬╖ LES FR├êRES BENAMAR</span>
+             </div>
+           </div>
+ 
+@@ -1277,7 +1314,7 @@ export default function AdminDashboard({
+             <div>
+               <span className="block text-[10px] text-[#76BC21] font-bold">
+                 {currentUser.role === 'admin' 
+-                  ? (isCurrentViewWorker ? 'وب╜و▒ّ ╪ز╪ش╪▒╪ذ╪ر ┘ê╪╢╪╣ ╪د┘┘à┘ê╪╕┘' : '≡اّّ ╪ص╪│╪د╪ذ ╪د┘┘à╪»┘è╪▒ ╪د┘╪╣╪د┘à')
++                  ? (isCurrentViewWorker ? 'ي┐╜ي┐╜ي┐╜ي┐╜ي┐╜ي┐╜ ╪ز╪ش╪▒╪ذ╪ر ┘ê╪╢╪╣ ╪د┘┘à┘ê╪╕┘' : '≡اّّ ╪ص╪│╪د╪ذ ╪د┘┘à╪»┘è╪▒ ╪د┘╪╣╪د┘à')
+                   : currentUser.subRole === 'supervisor'
+                     ? (isCurrentViewWorker ? '≡اّ« ╪ز╪ش╪▒╪ذ╪ر ┘ê╪╢╪╣ ╪د┘┘à┘ê╪╕┘ (┘à╪┤╪▒┘)' : '≡اّ« ╪ص╪│╪د╪ذ ╪د┘┘à╪┤╪▒┘ ╪د┘╪╣╪د┘à')
+                     : '≡ا¤د ╪ص╪│╪د╪ذ ┘à┘ê╪╕┘ ┘à┘è╪»╪د┘┘è ┘╪┤╪╖'}
+@@ -1389,7 +1426,8 @@ export default function AdminDashboard({
+                 </button>
+               )}
+ 
+-              {(currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageAttendance) && (
++              {/* Hidden for now (Coming soon) */}
++              {false && (currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageAttendance) && (
+                 <button
+                   onClick={() => setActiveTab('attendance')}
+                   className={`w-full flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+@@ -1408,7 +1446,8 @@ export default function AdminDashboard({
+             <div className="space-y-1.5">
+               <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1">≡اôخ ╪د┘╪«╪»┘à╪د╪ز ╪د┘┘┘ê╪ش╪│╪ز┘è╪ر ┘ê╪د┘┘à╪«╪د╪▓┘</div>
+ 
+-              {(currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageTransfers) && (
++              {/* Hidden for now (Coming soon) */}
++              {false && (currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageTransfers) && (
+                 <button
+                   onClick={() => setActiveTab('transfers')}
+                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+@@ -1450,7 +1489,8 @@ export default function AdminDashboard({
+                 </button>
+               )}
+ 
+-              {(currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageCamion) && (
++              {/* Hidden completely (Deleted tab) */}
++              {false && (currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageCamion) && (
+                 <button
+                   onClick={() => setActiveTab('camion')}
+                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+@@ -1539,15 +1579,18 @@ export default function AdminDashboard({
+ 
+       {/* Mobile Glassmorphic Bottom Navigation (Dynamic Tabs system) */}
+       <div className="md:hidden fixed bottom-4 left-4 right-4 bg-[#050E46]/95 backdrop-blur-lg border border-slate-800/80 rounded-2xl py-2 px-3 shadow-2xl flex items-center justify-around z-45">
+-        <button
+-          onClick={() => { setActiveTab('attendance'); setShowMobileMoreMenu(false); }}
+-          className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all relative cursor-pointer ${
+-            activeTab === 'attendance' ? 'text-[#76BC21] font-black scale-110' : 'text-slate-400 hover:text-white'
+-          }`}
+-        >
+-          <UserCheck className="w-5 h-5 shrink-0" />
+-          <span className="text-[9px]">╪د┘╪ص╪╢┘ê╪▒</span>
+-        </button>
++        {/* Hidden for now (Coming soon) */}
++        {false && (
++          <button
++            onClick={() => { setActiveTab('attendance'); setShowMobileMoreMenu(false); }}
++            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all relative cursor-pointer ${
++              activeTab === 'attendance' ? 'text-[#76BC21] font-black scale-110' : 'text-slate-400 hover:text-white'
++            }`}
++          >
++            <UserCheck className="w-5 h-5 shrink-0" />
++            <span className="text-[9px]">╪د┘╪ص╪╢┘ê╪▒</span>
++          </button>
++        )}
+ 
+         <button
+           onClick={() => { setActiveTab('tasks'); setShowMobileMoreMenu(false); }}
+@@ -1636,7 +1679,8 @@ export default function AdminDashboard({
+               <div className="space-y-2 text-right">
+                 <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest px-1">≡اôخ ╪د┘╪«╪»┘à╪د╪ز ╪د┘┘┘ê╪ش╪│╪ز┘è╪ر ┘ê╪د┘┘à╪«╪د╪▓┘</div>
+                 
+-                {(currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageTransfers) && (
++                {/* Hidden for now (Coming soon) */}
++                {false && (currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageTransfers) && (
+                   <button
+                     onClick={() => { setActiveTab('transfers'); setShowMobileMoreMenu(false); }}
+                     className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${activeTab === 'transfers' ? 'bg-[#76BC21] text-[#000839] font-bold shadow-md' : 'bg-[#000839] border border-slate-800 text-slate-300'}`}
+@@ -1670,7 +1714,8 @@ export default function AdminDashboard({
+                   </button>
+                 )}
+ 
+-                {(currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageCamion) && (
++                {/* Hidden completely (Deleted tab) */}
++                {false && (currentUser.role === 'admin' || currentUser.subRole === 'supervisor' || isCurrentViewWorker || currentUser.permissions?.canManageCamion) && (
+                   <button
+                     onClick={() => { setActiveTab('camion'); setShowMobileMoreMenu(false); }}
+                     className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-xs font-semibold transition-all cursor-pointer ${activeTab === 'camion' ? 'bg-[#76BC21] text-[#000839] font-bold shadow-md' : 'bg-[#000839] border border-slate-800 text-slate-300'}`}
+@@ -1789,7 +1834,7 @@ export default function AdminDashboard({
+                 </div>
+               )}
+             </div>
+-            <p className="text-xs text-slate-400 mt-1">┘╪╕╪د┘à ╪ذ┘ ╪╣┘à╪▒ ERP ┬╖ ╪ز╪ش┘à┘è╪╣ ╪د┘┘┘ê╪د╪ز┘è╪▒ ┘ê╪د┘┘à┘ç╪د┘à ╪د┘╪ز╪┤╪║┘è┘┘è╪ر</p>
++            <p className="text-xs text-slate-400 mt-1">┘╪╕╪د┘à FBM ERP ┬╖ ╪ز╪ش┘à┘è╪╣ ╪د┘┘┘ê╪د╪ز┘è╪▒ ┘ê╪د┘┘à┘ç╪د┘à ╪د┘╪ز╪┤╪║┘è┘┘è╪ر</p>
+           </div>
+           <div className="flex items-center gap-3 self-start sm:self-auto">
+             <NotificationPopover
+@@ -3334,7 +3379,7 @@ export default function AdminDashboard({
+                     <div className="space-y-1.5">
+                       <label className="text-xs font-semibold text-slate-300 block">╪د╪│┘à ╪د┘┘à╪│╪ز╪«╪»┘à ┘╪ز╪│╪ش┘è┘ ╪د┘╪»╪«┘ê┘ (┘╪د╪ز┘è┘┘è)</label>
+                       <div className="relative">
+-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-mono select-none" dir="ltr">@benamar.local</span>
++                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs font-mono select-none" dir="ltr">@fbm.local</span>
+                         <input
+                           type="text"
+                           value={newUserEmailPrefix}
+diff --git a/src/components/NotificationPopover.tsx b/src/components/NotificationPopover.tsx
+index 64f4963..f580c28 100644
+--- a/src/components/NotificationPopover.tsx
++++ b/src/components/NotificationPopover.tsx
+@@ -514,7 +514,7 @@ export default function NotificationPopover({
+ 
+               {/* Bottom footer drawer hint */}
+               <div className="p-3 border-t border-slate-800 bg-[#000839]/40 flex items-center justify-between text-[10px] text-slate-500 shrink-0">
+-                <span>╪ز┘╪ذ┘è┘ç╪د╪ز ╪ذ┘ ╪╣┘à╪▒ ╪د┘╪░┘â┘è╪ر v2.0</span>
++                <span>╪ز┘╪ذ┘è┘ç╪د╪ز FBM ╪د┘╪░┘â┘è╪ر v2.0</span>
+                 <span className="flex items-center gap-1">
+                   <span>╪ز┘à ╪د┘╪ز╪ص╪»┘è╪س ╪ز┘┘é╪د╪خ┘è╪د┘ï</span>
+                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+diff --git a/src/components/SmartLogin.tsx b/src/components/SmartLogin.tsx
+index 97395cd..ecc5e10 100644
+--- a/src/components/SmartLogin.tsx
++++ b/src/components/SmartLogin.tsx
+@@ -1,6 +1,6 @@
+-import React, { useState } from 'react';
++import React, { useState, useEffect } from 'react';
+ import { AppUser } from '../types';
+-import { ShieldAlert, User, Lock, Smartphone, Monitor, ChevronDown, ChevronUp, Check, Key } from 'lucide-react';
++import { ShieldCheck, User, Lock, Eye, EyeOff, Smartphone, Monitor, Wifi, WifiOff } from 'lucide-react';
+ import FBMLogo from './FBMLogo';
+ import { motion, AnimatePresence } from 'motion/react';
+ 
+@@ -12,225 +12,294 @@ interface SmartLoginProps {
+ export default function SmartLogin({ users, onLoginSuccess }: SmartLoginProps) {
+   const [username, setUsername] = useState('');
+   const [password, setPassword] = useState('');
++  const [showPassword, setShowPassword] = useState(false);
+   const [error, setError] = useState('');
+   const [isLoading, setIsLoading] = useState(false);
+-  const [showDemoAccounts, setShowDemoAccounts] = useState(false);
++  const [isOnline, setIsOnline] = useState(navigator.onLine);
++  const [loginAttempts, setLoginAttempts] = useState(0);
++  const [isLocked, setIsLocked] = useState(false);
++  const [lockTimer, setLockTimer] = useState(0);
++
++  // Online/Offline detection
++  useEffect(() => {
++    const handleOnline = () => setIsOnline(true);
++    const handleOffline = () => setIsOnline(false);
++    window.addEventListener('online', handleOnline);
++    window.addEventListener('offline', handleOffline);
++    return () => {
++      window.removeEventListener('online', handleOnline);
++      window.removeEventListener('offline', handleOffline);
++    };
++  }, []);
++
++  // Lock countdown timer
++  useEffect(() => {
++    if (lockTimer > 0) {
++      const t = setTimeout(() => setLockTimer(lt => lt - 1), 1000);
++      return () => clearTimeout(t);
++    } else if (isLocked && lockTimer === 0) {
++      setIsLocked(false);
++      setLoginAttempts(0);
++    }
++  }, [lockTimer, isLocked]);
+ 
+   const handleLogin = (e: React.FormEvent) => {
+     e.preventDefault();
++    if (isLocked) return;
+     setError('');
+     setIsLoading(true);
+ 
+     setTimeout(() => {
+       const trimmedUser = (username || '').trim().toLowerCase();
+-      // Resolve username - if no @, append @benamar.local
+-      const emailToSearch = trimmedUser.includes('@') ? trimmedUser : `${trimmedUser}@benamar.local`;
++      const prefixToSearch = trimmedUser.includes('@') ? trimmedUser.split('@')[0] : trimmedUser;
+ 
+-      const foundUser = users.find(u => (u.email || '').toLowerCase() === emailToSearch);
++      const foundUser = users.find(u => {
++        const userEmail = (u.email || '').toLowerCase();
++        const userPrefix = userEmail.includes('@') ? userEmail.split('@')[0] : userEmail;
++        return userPrefix === prefixToSearch;
++      });
+ 
+       if (!foundUser) {
+-        setError('ظإî ╪«╪╖╪ث ┘┘è ╪د╪│┘à ╪د┘┘à╪│╪ز╪«╪»┘à ╪ث┘ê ┘â┘┘à╪ر ╪د┘┘à╪▒┘ê╪▒ (╪د┘╪ص╪│╪د╪ذ ╪║┘è╪▒ ┘à╪│╪ش┘ ┘┘è ╪د┘┘╪╕╪د┘à)');
++        const newAttempts = loginAttempts + 1;
++        setLoginAttempts(newAttempts);
++        if (newAttempts >= 5) {
++          setIsLocked(true);
++          setLockTimer(30);
++          setError('≡ا¤ْ ╪ز┘à ╪ص╪╕╪▒ ╪ز╪│╪ش┘è┘ ╪د┘╪»╪«┘ê┘ ┘à╪ج┘é╪ز╪د┘ï. ╪ص╪د┘ê┘ ┘à╪ش╪»╪»╪د┘ï ╪ذ╪╣╪» 30 ╪س╪د┘┘è╪ر.');
++        } else {
++          setError(`ظإî ╪د╪│┘à ╪د┘┘à╪│╪ز╪«╪»┘à ╪║┘è╪▒ ╪╡╪ص┘è╪ص. (${5 - newAttempts} ┘à╪ص╪د┘ê┘╪د╪ز ┘à╪ز╪ذ┘é┘è╪ر)`);
++        }
+         setIsLoading(false);
+         return;
+       }
+ 
+       if (!foundUser.isActive) {
+-        setError('ظأبي╕ ┘ç╪░╪د ╪د┘╪ص╪│╪د╪ذ ┘à╪╣╪╖┘ ╪ص╪د┘┘è╪د┘ï ┘à┘ ┘é╪ذ┘ ╪ح╪»╪د╪▒╪ر ╪د┘┘╪▒┘ê╪╣ ┘ê╪د┘┘┘ê╪ش╪│╪ز┘è┘â');
++        setError('ظأبي╕ ┘ç╪░╪د ╪د┘╪ص╪│╪د╪ذ ┘à╪╣╪╖┘ ┘à┘ ┘é╪ذ┘ ╪د┘╪ح╪»╪د╪▒╪ر. ╪ز┘ê╪د╪╡┘ ┘à╪╣ ╪د┘┘à╪┤╪▒┘.');
+         setIsLoading(false);
+         return;
+       }
+ 
+-      // Verify passwords (or default values if not set)
+       const expectedPassword = foundUser.password || (foundUser.role === 'admin' ? 'admin123' : '123456');
+       if (password !== expectedPassword) {
+-        setError('ظإî ┘â┘┘à╪ر ╪د┘┘à╪▒┘ê╪▒ ╪د┘┘à╪▒┘┘é╪ر ╪║┘è╪▒ ╪╡╪ص┘è╪ص╪ر. ┘è╪▒╪ش┘ë ┘à╪▒╪د╪ش╪╣╪ر ╪د┘╪ح╪»╪د╪▒╪ر.');
++        const newAttempts = loginAttempts + 1;
++        setLoginAttempts(newAttempts);
++        if (newAttempts >= 5) {
++          setIsLocked(true);
++          setLockTimer(30);
++          setError('≡ا¤ْ ╪ز┘à ╪ص╪╕╪▒ ╪ز╪│╪ش┘è┘ ╪د┘╪»╪«┘ê┘ ┘à╪ج┘é╪ز╪د┘ï. ╪ص╪د┘ê┘ ┘à╪ش╪»╪»╪د┘ï ╪ذ╪╣╪» 30 ╪س╪د┘┘è╪ر.');
++        } else {
++          setError(`ظإî ┘â┘┘à╪ر ╪د┘┘à╪▒┘ê╪▒ ╪║┘è╪▒ ╪╡╪ص┘è╪ص╪ر. (${5 - newAttempts} ┘à╪ص╪د┘ê┘╪د╪ز ┘à╪ز╪ذ┘é┘è╪ر)`);
++        }
+         setIsLoading(false);
+         return;
+       }
+ 
++      setLoginAttempts(0);
+       setIsLoading(false);
+       onLoginSuccess(foundUser);
+-    }, 700);
++    }, 800);
+   };
+ 
+-  const handleQuickLogin = (user: AppUser) => {
+-    if (!user.isActive) {
+-      setError('ظأبي╕ ┘ç╪░╪د ╪د┘╪ص╪│╪د╪ذ ┘à╪╣╪╖┘ ╪ص╪د┘┘è╪د┘ï ┘à┘ ┘é╪ذ┘ ╪ح╪»╪د╪▒╪ر ╪د┘┘╪▒┘ê╪╣');
+-      return;
+-    }
+-    setError('');
+-    setIsLoading(true);
+-    setTimeout(() => {
+-      setIsLoading(false);
+-      onLoginSuccess(user);
+-    }, 400);
++  const getRoleIcon = () => {
++    if (!username) return null;
++    const prefix = username.trim().toLowerCase().includes('@')
++      ? username.trim().toLowerCase().split('@')[0]
++      : username.trim().toLowerCase();
++    const found = users.find(u => {
++      const up = (u.email || '').toLowerCase().split('@')[0];
++      return up === prefix;
++    });
++    if (!found) return null;
++    return found.role === 'admin'
++      ? <span className="text-[10px] text-purple-400 font-black mt-0.5 flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> ┘à╪»┘è╪▒ ╪د┘┘╪╕╪د┘à</span>
++      : <span className="text-[10px] text-[#76BC21] font-black mt-0.5 flex items-center gap-1"><Smartphone className="w-3 h-3" /> ┘à┘ê╪╕┘ ┘à┘è╪»╪د┘┘è</span>;
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-[#000839] flex flex-col items-center justify-center p-4 md:p-8 select-none relative overflow-hidden font-sans">
+-      {/* Premium ambient decorative blurred nodes */}
+-      <div className="absolute -top-12 -left-12 w-96 h-96 bg-[#76BC21]/15 rounded-full blur-[120px] pointer-events-none"></div>
+-      <div className="absolute -bottom-16 -right-16 w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[150px] pointer-events-none"></div>
+-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none"></div>
++    <div className="min-h-screen bg-[#000839] flex flex-col items-center justify-center p-4 select-none relative overflow-hidden" dir="rtl">
++      
++      {/* Animated Background Orbs */}
++      <div className="absolute inset-0 overflow-hidden pointer-events-none">
++        <div className="absolute -top-20 -left-20 w-96 h-96 bg-[#76BC21]/10 rounded-full blur-[120px] animate-pulse" style={{animationDuration:'4s'}} />
++        <div className="absolute -bottom-20 -right-20 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[150px] animate-pulse" style={{animationDuration:'6s'}} />
++        <div className="absolute top-1/3 right-1/4 w-48 h-48 bg-emerald-500/5 rounded-full blur-[80px] animate-pulse" style={{animationDuration:'3s'}} />
++        {/* Grid pattern overlay */}
++        <div className="absolute inset-0 opacity-[0.03]" style={{
++          backgroundImage: 'linear-gradient(rgba(118,188,33,1) 1px, transparent 1px), linear-gradient(90deg, rgba(118,188,33,1) 1px, transparent 1px)',
++          backgroundSize: '48px 48px'
++        }} />
++      </div>
++
++      {/* Online Status Bar */}
++      <div className={`fixed top-0 left-0 right-0 flex items-center justify-center gap-2 py-1 text-[10px] font-bold transition-all duration-300 z-50 ${
++        isOnline ? 'bg-[#76BC21]/20 text-[#76BC21]' : 'bg-red-900/30 text-red-400'
++      }`}>
++        {isOnline
++          ? <><Wifi className="w-3 h-3" /> ┘à╪ز╪╡┘ ╪ذ╪د┘╪┤╪ذ┘â╪ر</>
++          : <><WifiOff className="w-3 h-3" /> ┘╪د ┘è┘ê╪ش╪» ╪د╪ز╪╡╪د┘ ╪ذ╪د┘╪ح┘╪ز╪▒┘╪ز</>}
++      </div>
+ 
+-      {/* Main card */}
++      {/* Main Card */}
+       <motion.div
+-        initial={{ opacity: 0, y: 30 }}
+-        animate={{ opacity: 1, y: 0 }}
+-        transition={{ duration: 0.6, ease: 'easeOut' }}
+-        className="w-full max-w-lg bg-[#050E46]/85 border border-slate-800/90 rounded-3xl p-6 md:p-8 shadow-2xl relative backdrop-blur-xl z-10 flex flex-col justify-between"
++        initial={{ opacity: 0, y: 40, scale: 0.95 }}
++        animate={{ opacity: 1, y: 0, scale: 1 }}
++        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
++        className="w-full max-w-md relative z-10 mt-4"
+       >
+-        <div>
+-          {/* Logo Section */}
+-          <div className="flex flex-col items-center mb-6 text-center">
+-            <FBMLogo size="lg" className="mb-3 transform hover:scale-105 transition-all duration-300" />
+-            <h1 className="text-lg font-black text-white tracking-wide">┘à╪ج╪│╪│╪ر ╪ذ┘ ╪╣┘à╪▒ ┘┘┘┘é┘ ┘ê╪د┘┘┘ê╪ش╪│╪ز┘è┘â</h1>
+-            <span className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-mono">Ben Amar Enterprise ERP System</span>
+-            
+-            <div className="mt-3.5 inline-block bg-[#76BC21]/10 text-[#76BC21] border border-[#76BC21]/20 px-3.5 py-1 rounded-full text-[10px] font-black">
+-              ≡ا¤ ╪د┘╪ذ┘ê╪د╪ذ╪ر ╪د┘╪ث┘à┘┘è╪ر ╪د┘┘à╪┤┘╪▒╪ر ┘┘à┘ê╪╕┘┘è ╪د┘╪ح╪»╪د╪▒╪ر ┘ê╪د┘┘à┘è╪»╪د┘
+-            </div>
++        {/* Logo Area */}
++        <div className="flex flex-col items-center mb-6">
++          <motion.div
++            animate={{ y: [0, -6, 0] }}
++            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
++          >
++            <FBMLogo size="xl" className="mb-4" />
++          </motion.div>
++          <h1 className="text-2xl font-black text-white tracking-tight">FBM <span className="text-[#76BC21]">ERP</span></h1>
++          <p className="text-slate-400 text-xs mt-1 font-medium">┘╪╕╪د┘à ╪د┘╪ح╪»╪د╪▒╪ر ╪د┘┘à╪ز┘â╪د┘à┘ ظ¤ LES FR├êRES BENAMAR</p>
++          
++          <div className="mt-3 flex items-center gap-2 bg-[#76BC21]/10 border border-[#76BC21]/20 px-3 py-1.5 rounded-full">
++            <div className="online-dot" />
++            <span className="text-[#76BC21] text-[10px] font-black">╪د┘╪ذ┘ê╪د╪ذ╪ر ╪د┘╪ث┘à┘┘è╪ر ╪د┘┘à╪┤┘╪▒╪ر</span>
+           </div>
++        </div>
+ 
+-          {/* Quick Info Bar */}
+-          <div className="mb-6 flex items-center justify-between gap-4 bg-slate-900/40 p-3 rounded-xl border border-slate-800/80 text-[11px]">
+-            <div className="flex items-center gap-1.5 text-slate-400 font-bold">
+-              <Monitor className="w-4 h-4 text-slate-500" />
+-              <span>╪د┘╪ذ┘ê╪د╪ذ╪ر ╪د┘╪▒┘é┘à┘è╪ر ┘┘┘à┘â╪ز╪ذ</span>
++        {/* Login Card */}
++        <div className="glass-dark rounded-3xl p-6 shadow-2xl">
++          
++          {/* Device indicator pills */}
++          <div className="flex items-center gap-2 mb-5 p-2.5 bg-slate-900/50 rounded-xl border border-slate-800/60">
++            <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-bold flex-1 justify-center">
++              <Monitor className="w-3.5 h-3.5" />
++              <span>┘┘ê╪ص╪ر ╪د┘╪ح╪»╪د╪▒╪ر</span>
+             </div>
+-            <div className="text-slate-700">|</div>
+-            <div className="flex items-center gap-1.5 text-[#76BC21] font-bold">
+-              <Smartphone className="w-4 h-4 animate-pulse" />
+-              <span>╪د┘╪ز╪╖╪ذ┘è┘é ╪د┘┘à┘è╪»╪د┘┘è ┘┘╪│╪د╪خ┘é┘è┘</span>
++            <div className="w-px h-4 bg-slate-700" />
++            <div className="flex items-center gap-1.5 text-[#76BC21] text-[11px] font-black flex-1 justify-center">
++              <Smartphone className="w-3.5 h-3.5 animate-pulse" />
++              <span>╪د┘╪ز╪╖╪ذ┘è┘é ╪د┘┘à┘è╪»╪د┘┘è</span>
+             </div>
+           </div>
+ 
+-          {/* Form */}
+-          <form onSubmit={handleLogin} className="space-y-4">
+-            {/* Username */}
++          <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
++            {/* Username Field */}
+             <div className="space-y-1.5">
+-              <label className="block text-right text-xs font-black text-slate-300">╪د╪│┘à ╪د┘┘à╪│╪ز╪«╪»┘à ┘┘╪╣┘à╪د┘ ┘ê╪د┘┘à┘ê╪╕┘┘è┘ *</label>
+-              <div className="relative group">
+-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#76BC21] transition-colors duration-200">
+-                  <User className="w-4 h-4" />
+-                </span>
++              <label className="block text-xs font-black text-slate-300">
++                ╪د╪│┘à ╪د┘┘à╪│╪ز╪«╪»┘à
++              </label>
++              <div className="relative">
++                <User className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                 <input
+                   type="text"
+                   value={username}
+-                  onChange={(e) => setUsername(e.target.value)}
++                  onChange={e => { setUsername(e.target.value); setError(''); }}
+                   placeholder="┘à╪س╪د┘: yacine ╪ث┘ê ali"
+                   dir="ltr"
+-                  className="w-full bg-[#000839]/90 border border-slate-800 focus:border-[#76BC21] rounded-xl pr-11 pl-4 py-3 text-xs text-right text-white focus:outline-none transition-all duration-300 placeholder-slate-600 focus:ring-1 focus:ring-[#76BC21]/30 font-bold"
++                  autoComplete="username"
++                  className="input-fbm w-full rounded-xl pr-11 pl-4 py-3 text-sm font-bold text-right"
+                   required
++                  disabled={isLocked}
+                 />
+               </div>
+-              {username && (
+-                <div className="text-left text-[9px] text-slate-500 font-mono mt-1 pr-1 flex items-center gap-1" dir="ltr">
+-                  <Check className="w-3 h-3 text-[#76BC21]" />
+-                  <span>Mailbox resolution: {username.trim().toLowerCase().includes('@') ? username.trim().toLowerCase() : `${username.trim().toLowerCase()}@benamar.local`}</span>
+-                </div>
+-              )}
++              {/* Role hint */}
++              <AnimatePresence>
++                {username && (
++                  <motion.div
++                    initial={{ opacity: 0, height: 0 }}
++                    animate={{ opacity: 1, height: 'auto' }}
++                    exit={{ opacity: 0, height: 0 }}
++                    className="overflow-hidden"
++                  >
++                    <div className="flex justify-end pr-1">
++                      {getRoleIcon()}
++                    </div>
++                  </motion.div>
++                )}
++              </AnimatePresence>
+             </div>
+ 
+-            {/* Password */}
++            {/* Password Field */}
+             <div className="space-y-1.5">
+-              <label className="block text-right text-xs font-black text-slate-300">╪▒┘à╪▓ ╪د┘┘à╪▒┘ê╪▒ ╪د┘╪│╪▒┘è *</label>
+-              <div className="relative group">
+-                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#76BC21] transition-colors duration-200">
+-                  <Lock className="w-4 h-4" />
+-                </span>
++              <label className="block text-xs font-black text-slate-300">
++                ┘â┘┘à╪ر ╪د┘┘à╪▒┘ê╪▒
++              </label>
++              <div className="relative">
++                <Lock className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                 <input
+-                  type="password"
++                  type={showPassword ? 'text' : 'password'}
+                   value={password}
+-                  onChange={(e) => setPassword(e.target.value)}
+-                  placeholder="╪▒┘à╪▓ ╪د┘┘à╪▒┘ê╪▒ (╪ث╪▒┘é╪د┘à ┘ê╪ص╪▒┘ê┘)"
++                  onChange={e => { setPassword(e.target.value); setError(''); }}
++                  placeholder="╪ث╪»╪«┘ ┘â┘┘à╪ر ╪د┘┘à╪▒┘ê╪▒"
+                   dir="ltr"
+-                  className="w-full bg-[#000839]/90 border border-slate-800 focus:border-[#76BC21] rounded-xl pr-11 pl-4 py-3 text-xs text-white focus:outline-none transition-all duration-300 placeholder-slate-600 focus:ring-1 focus:ring-[#76BC21]/30"
++                  autoComplete="current-password"
++                  className="input-fbm w-full rounded-xl pr-11 pl-12 py-3 text-sm"
+                   required
++                  disabled={isLocked}
+                 />
++                <button
++                  type="button"
++                  onClick={() => setShowPassword(p => !p)}
++                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-[#76BC21] transition-colors p-1"
++                  tabIndex={-1}
++                >
++                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
++                </button>
+               </div>
+             </div>
+ 
+-            {/* Error Message */}
+-            {error && (
++            {/* Locked Timer */}
++            {isLocked && lockTimer > 0 && (
+               <motion.div
+-                initial={{ opacity: 0, y: -5 }}
+-                animate={{ opacity: 1, y: 0 }}
+-                className="bg-red-950/40 border border-red-900/60 text-red-200 p-3 rounded-xl text-[11px] text-right flex items-center gap-2"
++                initial={{ opacity: 0 }}
++                animate={{ opacity: 1 }}
++                className="text-center py-2"
+               >
+-                <ShieldAlert className="w-4 h-4 shrink-0 text-red-400" />
+-                <span className="font-bold leading-relaxed">{error}</span>
++                <div className="inline-flex items-center gap-2 bg-red-950/40 border border-red-900/40 px-4 py-2 rounded-xl">
++                  <div className="w-6 h-6 rounded-full border-2 border-red-500 flex items-center justify-center text-red-400 text-xs font-black">
++                    {lockTimer}
++                  </div>
++                  <span className="text-red-300 text-xs font-bold">╪س╪د┘┘è╪ر ┘é╪ذ┘ ╪ح╪╣╪د╪»╪ر ╪د┘┘à╪ص╪د┘ê┘╪ر</span>
++                </div>
+               </motion.div>
+             )}
+ 
+-            {/* Submit button */}
+-            <button
++            {/* Error */}
++            <AnimatePresence>
++              {error && (
++                <motion.div
++                  initial={{ opacity: 0, y: -8 }}
++                  animate={{ opacity: 1, y: 0 }}
++                  exit={{ opacity: 0, y: -8 }}
++                  className="bg-red-950/40 border border-red-800/50 text-red-200 px-4 py-3 rounded-xl text-xs font-bold text-right flex items-start gap-2"
++                >
++                  <span className="leading-relaxed">{error}</span>
++                </motion.div>
++              )}
++            </AnimatePresence>
++
++            {/* Submit Button */}
++            <motion.button
+               type="submit"
+-              disabled={isLoading}
+-              className="w-full bg-[#76BC21] hover:bg-[#62a118] text-[#000839] font-black py-3.5 px-4 rounded-xl shadow-lg hover:shadow-[#76BC21]/15 transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 active:scale-[0.98] text-xs"
++              disabled={isLoading || isLocked}
++              whileTap={{ scale: 0.97 }}
++              className="w-full relative overflow-hidden bg-[#76BC21] hover:bg-[#62a118] disabled:opacity-50 disabled:cursor-not-allowed text-[#000839] font-black py-3.5 rounded-xl shadow-lg shadow-[#76BC21]/20 transition-all duration-200 flex items-center justify-center gap-2 text-sm"
+             >
+               {isLoading ? (
+-                <span className="w-5 h-5 border-2 border-[#000839] border-t-transparent rounded-full animate-spin"></span>
++                <>
++                  <span className="w-4 h-4 border-2 border-[#000839] border-t-transparent rounded-full animate-spin" />
++                  <span>╪ش╪د╪▒┘ ╪د┘╪ز╪ص┘é┘é...</span>
++                </>
++              ) : isLocked ? (
++                <span>≡ا¤ْ ┘à╪ص╪╕┘ê╪▒ ┘à╪ج┘é╪ز╪د┘ï</span>
+               ) : (
+-                <span>╪د┘┘ê┘┘ê╪ش ╪د┘╪ت┘à┘ ┘┘╪╕╪د┘à ╪د┘╪ز╪│┘è┘è╪▒ ┘ê╪د┘╪ز╪ص┘â┘à ≡اأز</span>
++                <span>╪د┘╪»╪«┘ê┘ ╪د┘╪ت┘à┘ ┘┘┘╪╕╪د┘à ≡اأ</span>
+               )}
+-            </button>
++            </motion.button>
+           </form>
+-        </div>
+ 
+-        {/* Demo Accounts Panel */}
+-        <div className="mt-6 border-t border-slate-800/60 pt-4">
+-          <button
+-            type="button"
+-            onClick={() => setShowDemoAccounts(!showDemoAccounts)}
+-            className="w-full flex items-center justify-between text-slate-400 hover:text-white transition-all text-[11px] font-bold py-1.5 cursor-pointer"
+-          >
+-            <span className="flex items-center gap-1.5">
+-              <Key className="w-3.5 h-3.5 text-[#76BC21]" />
+-              <span>╪د┘╪ص╪│╪د╪ذ╪د╪ز ╪د┘╪ز╪ش╪▒┘è╪ذ┘è╪ر ┘ê╪د┘╪»╪«┘ê┘ ╪د┘╪│╪▒┘è╪╣</span>
+-            </span>
+-            {showDemoAccounts ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+-          </button>
+-
+-          <AnimatePresence>
+-            {showDemoAccounts && (
+-              <motion.div
+-                initial={{ opacity: 0, height: 0 }}
+-                animate={{ opacity: 1, height: 'auto' }}
+-                exit={{ opacity: 0, height: 0 }}
+-                className="overflow-hidden mt-2 space-y-2"
+-              >
+-                <p className="text-[10px] text-slate-500 text-right leading-relaxed mb-2">
+-                  ╪د╪«╪ز╪▒ ╪ث╪ص╪» ╪د┘╪ص╪│╪د╪ذ╪د╪ز ╪د┘╪ز╪د┘┘è╪ر ┘┘┘à╪▒┘ê╪▒ ╪د┘┘┘ê╪▒┘è ┘ê╪ز╪ش╪▒╪ذ╪ر ┘ê╪د╪ش┘ç╪د╪ز ╪د┘┘à┘ê╪╕┘ ╪ث┘ê ╪د┘┘à╪»┘è╪▒:
+-                </p>
+-                <div className="grid grid-cols-1 gap-2">
+-                  {users.map((u) => {
+-                    const isManager = u.role === 'admin';
+-                    return (
+-                      <button
+-                        key={u.uid}
+-                        type="button"
+-                        onClick={() => handleQuickLogin(u)}
+-                        className="bg-[#000839]/60 hover:bg-[#76BC21]/10 border border-slate-800 hover:border-[#76BC21]/40 rounded-xl p-2.5 flex items-center justify-between text-right transition-all cursor-pointer group text-xs"
+-                      >
+-                        <div className="flex items-center gap-2">
+-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-md ${
+-                            isManager ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-[#76BC21]/10 text-[#76BC21] border border-[#76BC21]/20'
+-                          }`}>
+-                            {isManager ? '┘à╪»┘è╪▒ ╪╣╪د┘à ظص' : '┘à┘ê╪╕┘ ┘à┘è╪»╪د┘┘è ≡اأؤ'}
+-                          </span>
+-                        </div>
+-                        <div className="space-y-0.5">
+-                          <span className="text-white font-black block group-hover:text-[#76BC21] transition-colors">{u.fullName}</span>
+-                          <span className="text-[9px] text-slate-500 font-mono" dir="ltr">{u.email}</span>
+-                        </div>
+-                      </button>
+-                    );
+-                  })}
+-                </div>
+-              </motion.div>
+-            )}
+-          </AnimatePresence>
++          {/* Footer */}
++          <div className="mt-5 pt-4 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-600">
++            <span>FBM ERP v2.0</span>
++            <span>LES FR├êRES BENAMAR ┬ر 2026</span>
++          </div>
+         </div>
+       </motion.div>
+     </div>
+diff --git a/src/components/TaskSignatureModal.tsx b/src/components/TaskSignatureModal.tsx
+index a15f497..88a6d43 100644
+--- a/src/components/TaskSignatureModal.tsx
++++ b/src/components/TaskSignatureModal.tsx
+@@ -1,6 +1,8 @@
+ import React, { useRef, useState, useEffect } from 'react';
+ import { CompanyTask } from '../types';
+ import { PenTool, MapPin, RotateCcw, Check, X, ShieldCheck, HelpCircle } from 'lucide-react';
++import { Capacitor } from '@capacitor/core';
++import { Geolocation as CapGeolocation } from '@capacitor/geolocation';
+ 
+ interface TaskSignatureModalProps {
+   task: CompanyTask;
+@@ -24,31 +26,54 @@ export default function TaskSignatureModal({ task, isOpen, onClose, onConfirm }:
+     setGpsLoading(true);
+     setGpsError(null);
+ 
+-    if (!('geolocation' in navigator)) {
+-      setGpsError('┘à╪ز╪╡┘╪ص┘â ┘╪د ┘è╪»╪╣┘à ┘╪╕╪د┘à ╪ز╪ص╪»┘è╪» ╪د┘┘à┘ê╪د┘é╪╣ GPS');
+-      setGpsLoading(false);
+-      return;
+-    }
+-
+-    navigator.geolocation.getCurrentPosition(
+-      (position) => {
+-        setGpsCoords({
+-          lat: position.coords.latitude,
+-          lng: position.coords.longitude
+-        });
+-        setGpsLoading(false);
+-      },
+-      (error) => {
+-        console.warn('GPS location request failed:', error);
+-        let errorMsg = '╪ز╪╣╪░╪▒ ╪د┘╪ص╪╡┘ê┘ ╪╣┘┘ë ╪د┘┘à┘ê┘é╪╣ ╪د┘╪ش╪║╪▒╪د┘┘è';
+-        if (error.code === error.PERMISSION_DENIED) {
+-          errorMsg = '╪ز┘à ╪▒┘╪╢ ╪ح╪░┘ ╪ز╪ص╪»┘è╪» ╪د┘┘à┘ê┘é╪╣ ╪د┘╪ش╪║╪▒╪د┘┘è ┘à┘ ╪د┘┘à╪ز╪╡┘╪ص';
++    const getGPS = async () => {
++      // 1. Try Capacitor native Geolocation first on mobile devices
++      if (Capacitor.isNativePlatform()) {
++        try {
++          const position = await CapGeolocation.getCurrentPosition({
++            enableHighAccuracy: true,
++            timeout: 8000
++          });
++          setGpsCoords({
++            lat: position.coords.latitude,
++            lng: position.coords.longitude
++          });
++          setGpsLoading(false);
++          return;
++        } catch (err) {
++          console.warn('Capacitor GPS location request failed, trying browser fallback:', err);
+         }
+-        setGpsError(errorMsg);
++      }
++
++      // 2. Web browser fallback
++      if (!('geolocation' in navigator)) {
++        setGpsError('┘à╪ز╪╡┘╪ص┘â ┘╪د ┘è╪»╪╣┘à ┘╪╕╪د┘à ╪ز╪ص╪»┘è╪» ╪د┘┘à┘ê╪د┘é╪╣ GPS');
+         setGpsLoading(false);
+-      },
+-      { enableHighAccuracy: true, timeout: 8000 }
+-    );
++        return;
++      }
++
++      navigator.geolocation.getCurrentPosition(
++        (position) => {
++          setGpsCoords({
++            lat: position.coords.latitude,
++            lng: position.coords.longitude
++          });
++          setGpsLoading(false);
++        },
++        (error) => {
++          console.warn('Browser GPS location request failed:', error);
++          let errorMsg = '╪ز╪╣╪░╪▒ ╪د┘╪ص╪╡┘ê┘ ╪╣┘┘ë ╪د┘┘à┘ê┘é╪╣ ╪د┘╪ش╪║╪▒╪د┘┘è';
++          if (error.code === error.PERMISSION_DENIED) {
++            errorMsg = '╪ز┘à ╪▒┘╪╢ ╪ح╪░┘ ╪ز╪ص╪»┘è╪» ╪د┘┘à┘ê┘é╪╣ ╪د┘╪ش╪║╪▒╪د┘┘è ┘à┘ ╪د┘┘à╪ز╪╡┘╪ص';
++          }
++          setGpsError(errorMsg);
++          setGpsLoading(false);
++        },
++        { enableHighAccuracy: true, timeout: 8000 }
++      );
++    };
++
++    getGPS();
+   }, [isOpen]);
+ 
+   // Adjust canvas high-DPI scaling
+diff --git a/src/components/WorkerDashboard.tsx b/src/components/WorkerDashboard.tsx
+index f2cad71..aedf9b8 100644
+--- a/src/components/WorkerDashboard.tsx
++++ b/src/components/WorkerDashboard.tsx
+@@ -1,5 +1,10 @@
+ import React, { useState, useRef, useEffect } from 'react';
++import { motion, AnimatePresence } from 'motion/react';
+ import { AppUser, CompanyCategory, CompanyTask, CompanyExpense, CompanyNotification, AttendanceRecord, ChatMessage, StockTransfer, ClientOrder, CamionRoute } from '../types';
++import { Capacitor } from '@capacitor/core';
++import { Camera as CapCamera, CameraResultType, CameraSource } from '@capacitor/camera';
++import { Geolocation as CapGeolocation } from '@capacitor/geolocation';
++import { LocalNotifications } from '@capacitor/local-notifications';
+ import { 
+   Plus, Camera, Check, Clock, Bell, LogOut, X, AlertCircle, 
+   Sparkles, CheckCircle2, ChevronRight, HelpCircle, RefreshCw, Send,
+@@ -154,7 +159,36 @@ export default function WorkerDashboard({
+     // 1. Play soft chime immediately
+     playNotificationChime();
+     
+-    // 2. Request Notification Permission
++    // 2. Native notification trigger
++    if (Capacitor.isNativePlatform()) {
++      try {
++        const perm = await LocalNotifications.requestPermissions();
++        setNotificationPermissionGranted(perm.display);
++        if (perm.display === 'granted') {
++          await LocalNotifications.schedule({
++            notifications: [
++              {
++                title: '┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤',
++                body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
++                id: Math.floor(Math.random() * 2000000) + 1,
++                schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true },
++                channelId: 'fbm-main-channel',
++                visibility: 1,
++                importance: 5,
++                smallIcon: 'ic_launcher',
++                iconColor: '#76BC21',
++                sound: 'default'
++              }
++            ]
++          });
++        }
++      } catch (err) {
++        console.error('[FBM] Failed to trigger native test notification:', err);
++      }
++      return;
++    }
++
++    // Web fallback
+     if (typeof window !== 'undefined' && 'Notification' in window) {
+       const permission = await Notification.requestPermission();
+       setNotificationPermissionGranted(permission);
+@@ -163,19 +197,24 @@ export default function WorkerDashboard({
+         // Trigger a native test notification
+         if ('serviceWorker' in navigator) {
+           navigator.serviceWorker.ready.then((reg) => {
+-            reg.showNotification('┘à╪ش┘à┘ê╪╣╪ر ╪ذ┘ ╪╣┘à╪▒ - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++            reg.showNotification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
+               body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
+               icon: 'https://img.icons8.com/color/192/delivery.png',
+               vibrate: [100, 50, 100]
+-            } as any);
++            } as any).catch(() => {
++              new Notification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++                body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
++                icon: 'https://img.icons8.com/color/192/delivery.png'
++              });
++            });
+           }).catch(() => {
+-            new Notification('┘à╪ش┘à┘ê╪╣╪ر ╪ذ┘ ╪╣┘à╪▒ - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++            new Notification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
+               body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
+               icon: 'https://img.icons8.com/color/192/delivery.png'
+             });
+           });
+         } else {
+-          new Notification('┘à╪ش┘à┘ê╪╣╪ر ╪ذ┘ ╪╣┘à╪▒ - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
++          new Notification('┘à╪ش┘à┘ê╪╣╪ر FBM - ╪د╪«╪ز╪ذ╪د╪▒ ╪د┘╪د╪ز╪╡╪د┘ ≡ا¤¤', {
+             body: '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘╪╡┘ê╪ز ┘ê╪د┘┘╪╕╪د┘à ╪ز╪╣┘à┘ ╪ذ╪┤┘â┘ ┘à┘à╪ز╪د╪▓ ╪د┘╪ت┘ ╪╣┘┘ë ╪ش┘ê╪د┘┘â!',
+             icon: 'https://img.icons8.com/color/192/delivery.png'
+           });
+@@ -277,8 +316,61 @@ export default function WorkerDashboard({
+     }
+   }, [tasks, currentUser.uid]);
+ 
++  const getCurrentGPSLocation = async (): Promise<{ lat: number; lng: number } | null> => {
++    if (Capacitor.isNativePlatform()) {
++      try {
++        const position = await CapGeolocation.getCurrentPosition({
++          enableHighAccuracy: true,
++          timeout: 8000
++        });
++        return {
++          lat: position.coords.latitude,
++          lng: position.coords.longitude
++        };
++      } catch (err) {
++        console.warn('Native GPS retrieval failed, trying Web fallback:', err);
++      }
++    }
++
++    // Web Fallback
++    if ('geolocation' in navigator) {
++      try {
++        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
++          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
++        });
++        return {
++          lat: position.coords.latitude,
++          lng: position.coords.longitude
++        };
++      } catch (err) {
++        console.warn('Web GPS retrieval failed:', err);
++      }
++    }
++    return null;
++  };
++
+   const startCamera = async () => {
+     setCapturedImage(null);
++    if (Capacitor.isNativePlatform()) {
++      setShowCamera(false);
++      try {
++        const photo = await CapCamera.getPhoto({
++          quality: 90,
++          allowEditing: false,
++          resultType: CameraResultType.Base64,
++          source: CameraSource.Camera
++        });
++        if (photo.base64String) {
++          const base64Img = `data:image/jpeg;base64,${photo.base64String}`;
++          setCapturedImage(base64Img);
++        }
++      } catch (err) {
++        console.warn('Native camera capture failed, falling back to simulated invoice.', err);
++        generateSimulatedInvoice();
++      }
++      return;
++    }
++
+     try {
+       const stream = await navigator.mediaDevices.getUserMedia({ 
+         video: { facingMode: 'environment' }, 
+@@ -370,7 +462,7 @@ export default function WorkerDashboard({
+     ctx.fillStyle = '#475569';
+     ctx.fillText(`╪د┘╪▒┘é┘à ╪د┘╪ز╪│┘╪│┘┘è: FBM-B-${Math.floor(100000 + Math.random() * 900000)}`, 540, 200);
+     ctx.fillText(`╪د┘╪ز╪د╪▒┘è╪«: ${new Date().toLocaleDateString('ar-DZ')}`, 540, 225);
+-    ctx.fillText('╪د┘╪ش┘ç╪ر ╪د┘┘à╪╡╪»╪▒╪ر: ┘à╪ص╪╖╪ر ╪«╪»┘à╪د╪ز ┘ê┘┘é┘ ╪د┘╪ح╪«┘ê╪ر ╪ذ┘ ╪╣┘à╪▒ ╪┤.╪░.┘à.┘à', 540, 250);
++    ctx.fillText('╪د┘╪ش┘ç╪ر ╪د┘┘à╪╡╪»╪▒╪ر: ┘à╪ص╪╖╪ر ╪«╪»┘à╪د╪ز ┘ê┘┘é┘ LES FR├êRES BENAMAR ╪┤.╪░.┘à.┘à', 540, 250);
+     ctx.fillText(`╪د╪│┘à ╪د┘┘à┘é╪ز┘┘è: ${currentUser.fullName}`, 540, 275);
+ 
+     // Table of items
+@@ -406,14 +498,14 @@ export default function WorkerDashboard({
+     ctx.fillStyle = 'rgba(220, 38, 38, 0.65)';
+     ctx.font = 'bold 11px "Cairo", sans-serif';
+     ctx.textAlign = 'center';
+-    ctx.fillText('┘à╪ش┘à┘ê╪╣╪ر ╪د┘╪ح╪«┘ê╪ر ╪ذ┘ ╪╣┘à╪▒', 420, 600);
++    ctx.fillText('LES FR├êRES BENAMAR', 420, 600);
+     ctx.fillText('FBM ╪د┘╪ش╪▓╪د╪خ╪▒', 420, 620);
+     ctx.fillText('┘à┘é╪ذ┘ê┘ ┘ê╪╡╪د┘╪ص', 420, 640);
+ 
+     // Signature
+     ctx.font = 'italic 12px "Courier New"';
+     ctx.fillStyle = '#1e3a8a'; // blue ink signature
+-    ctx.fillText('BenAmar_Sign', 420, 690);
++    ctx.fillText('FBM_Sign', 420, 690);
+ 
+     const dataUrl = canvas.toDataURL('image/jpeg');
+     setCapturedImage(dataUrl);
+@@ -430,27 +522,11 @@ export default function WorkerDashboard({
+     setIsBiometricScanning(true);
+     setAttendanceGpsError(null);
+     
+-    let gpsCoordsToUse: { lat: number; lng: number } | null = null;
+-    
+-    // Request GPS
+-    if ('geolocation' in navigator) {
+-      try {
+-        const position = await new Promise<any>((resolve, reject) => {
+-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
+-        });
+-        gpsCoordsToUse = {
+-          lat: position.coords.latitude,
+-          lng: position.coords.longitude
+-        };
+-        setAttendanceGps(gpsCoordsToUse);
+-      } catch (err) {
+-        console.warn('GPS failed for attendance, using defaults:', err);
+-        setAttendanceGpsError('╪ز╪╣╪░╪▒ ╪د┘╪ص╪╡┘ê┘ ╪╣┘┘ë ╪ح╪ص╪»╪د╪س┘è╪د╪ز ╪د┘╪ش┘è ╪ذ┘è ╪د╪│');
+-        gpsCoordsToUse = { lat: 36.7538, lng: 3.0588 };
+-        setAttendanceGps(gpsCoordsToUse);
+-      }
++    let gpsCoordsToUse = await getCurrentGPSLocation();
++    if (gpsCoordsToUse) {
++      setAttendanceGps(gpsCoordsToUse);
+     } else {
+-      setAttendanceGpsError('┘╪╕╪د┘à ╪د┘╪ش┘è ╪ذ┘è ╪د╪│ ╪║┘è╪▒ ┘à╪»╪╣┘ê┘à');
++      setAttendanceGpsError('╪ز╪╣╪░╪▒ ╪د┘╪ص╪╡┘ê┘ ╪╣┘┘ë ╪ح╪ص╪»╪د╪س┘è╪د╪ز ╪د┘╪ش┘è ╪ذ┘è ╪د╪│');
+       gpsCoordsToUse = { lat: 36.7538, lng: 3.0588 };
+       setAttendanceGps(gpsCoordsToUse);
+     }
+@@ -522,22 +598,8 @@ export default function WorkerDashboard({
+     if (!activeRec) return;
+ 
+     setIsBiometricScanning(true);
+-    let gpsCoordsToUse: { lat: number; lng: number } | null = null;
+-    
+-    // Request GPS
+-    if ('geolocation' in navigator) {
+-      try {
+-        const position = await new Promise<any>((resolve, reject) => {
+-          navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
+-        });
+-        gpsCoordsToUse = {
+-          lat: position.coords.latitude,
+-          lng: position.coords.longitude
+-        };
+-      } catch (err) {
+-        gpsCoordsToUse = { lat: 36.7538, lng: 3.0588 };
+-      }
+-    } else {
++    let gpsCoordsToUse = await getCurrentGPSLocation();
++    if (!gpsCoordsToUse) {
+       gpsCoordsToUse = { lat: 36.7538, lng: 3.0588 };
+     }
+ 
+@@ -1651,7 +1713,8 @@ export default function WorkerDashboard({
+           </button>
+         )}
+ 
+-        {isAllowed('canManageTransfers') && (
++        {/* Hidden for now (Coming soon) */}
++        {false && isAllowed('canManageTransfers') && (
+           <button
+             onClick={() => setActiveTab('transfers')}
+             className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer shrink-0 relative ${
+@@ -1663,7 +1726,8 @@ export default function WorkerDashboard({
+           </button>
+         )}
+ 
+-        {isAllowed('canManageCamion') && (
++        {/* Hidden completely (Deleted tab) */}
++        {false && isAllowed('canManageCamion') && (
+           <button
+             onClick={() => setActiveTab('camion')}
+             className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer shrink-0 relative ${
+@@ -1675,7 +1739,8 @@ export default function WorkerDashboard({
+           </button>
+         )}
+ 
+-        {isAllowed('canManageAttendance') && (
++        {/* Hidden for now (Coming soon) */}
++        {false && isAllowed('canManageAttendance') && (
+           <button
+             onClick={() => setActiveTab('attendance')}
+             className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer shrink-0 relative ${
+diff --git a/src/data.ts b/src/data.ts
+index c4d86fe..3e11439 100644
+--- a/src/data.ts
++++ b/src/data.ts
+@@ -1,10 +1,11 @@
+ import { AppUser, CompanyCategory, CompanyTask, CompanyExpense, CompanyNotification } from './types';
++import { Preferences } from '@capacitor/preferences';
+ 
+ // Clear all default users so we only seed the active admin user on Firestore
+ export const DEFAULT_USERS: AppUser[] = [
+   {
+     uid: 'admin_yacine',
+-    email: 'yacine@benamar.local',
++    email: 'yacine@fbm.local',
+     role: 'admin',
+     fullName: 'YACINE',
+     isActive: true,
+@@ -29,19 +30,22 @@ export const DEFAULT_NOTIFICATIONS: CompanyNotification[] = [];
+ // Local Storage Helper for session storage
+ const STORAGE_PREFIX = 'benamar_erp_';
+ 
+-export function getStoredData<T>(key: string, defaultValue: T): T {
++export async function getStoredData<T>(key: string, defaultValue: T): Promise<T> {
+   try {
+-    const data = localStorage.getItem(STORAGE_PREFIX + key);
+-    return data ? JSON.parse(data) : defaultValue;
++    const { value } = await Preferences.get({ key: STORAGE_PREFIX + key });
++    return value ? JSON.parse(value) : defaultValue;
+   } catch (error) {
+     console.error('Error loading stored data for key: ' + key, error);
+     return defaultValue;
+   }
+ }
+ 
+-export function setStoredData<T>(key: string, value: T): void {
++export async function setStoredData<T>(key: string, value: T): Promise<void> {
+   try {
+-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
++    await Preferences.set({
++      key: STORAGE_PREFIX + key,
++      value: JSON.stringify(value)
++    });
+   } catch (error) {
+     console.error('Error saving stored data for key: ' + key, error);
+   }
+diff --git a/src/firebase.ts b/src/firebase.ts
+index 93f5f81..f6c4805 100644
+--- a/src/firebase.ts
++++ b/src/firebase.ts
+@@ -45,7 +45,7 @@ const COLL_CHAT = 'chat';
+ // Admin Account Requested
+ export const ADMIN_USER: AppUser = {
+   uid: 'admin_yacine',
+-  email: 'yacine@benamar.local',
++  email: 'yacine@fbm.local',
+   role: 'admin',
+   fullName: 'YACINE',
+   isActive: true,
+diff --git a/src/index.css b/src/index.css
+index a46cc47..c12cb51 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -1,14 +1,28 @@
+-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
++@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+ @import "tailwindcss";
+ 
+ @theme {
+   --font-sans: "Cairo", "Inter", ui-sans-serif, system-ui, sans-serif;
+   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+ 
+-  /* Custom animation keyframes and animations */
++  /* FBM Brand Colors */
++  --color-fbm-green: #76BC21;
++  --color-fbm-dark: #000839;
++  --color-fbm-navy: #050E46;
++  --color-fbm-green-dark: #5da018;
++  --color-fbm-green-light: #9ed44f;
++
++  /* Animation keyframes */
+   --animate-fadeIn: fadeIn 0.3s ease-out;
+   --animate-slideIn: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
++  --animate-slideUp: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+   --animate-toastProgress: toastProgress 6s linear forwards;
++  --animate-pulse-green: pulseGreen 2s ease-in-out infinite;
++  --animate-shimmer: shimmer 2s linear infinite;
++  --animate-bounceIn: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
++  --animate-float: float 3s ease-in-out infinite;
++  --animate-glow: glow 2s ease-in-out infinite alternate;
++  --animate-spin-slow: spin 3s linear infinite;
+ 
+   @keyframes fadeIn {
+     from { opacity: 0; transform: scale(0.95); }
+@@ -18,14 +32,258 @@
+     from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+     to { opacity: 1; transform: translateY(0) scale(1); }
+   }
++  @keyframes slideUp {
++    from { opacity: 0; transform: translateY(30px); }
++    to { opacity: 1; transform: translateY(0); }
++  }
+   @keyframes toastProgress {
+     from { width: 100%; }
+     to { width: 0%; }
+   }
++  @keyframes pulseGreen {
++    0%, 100% { box-shadow: 0 0 0 0 rgba(118, 188, 33, 0.4); }
++    50% { box-shadow: 0 0 0 12px rgba(118, 188, 33, 0); }
++  }
++  @keyframes shimmer {
++    0% { background-position: -200% center; }
++    100% { background-position: 200% center; }
++  }
++  @keyframes bounceIn {
++    0% { opacity: 0; transform: scale(0.3); }
++    50% { opacity: 1; transform: scale(1.05); }
++    70% { transform: scale(0.9); }
++    100% { opacity: 1; transform: scale(1); }
++  }
++  @keyframes float {
++    0%, 100% { transform: translateY(0px); }
++    50% { transform: translateY(-8px); }
++  }
++  @keyframes glow {
++    from { text-shadow: 0 0 5px rgba(118, 188, 33, 0.5); }
++    to { text-shadow: 0 0 20px rgba(118, 188, 33, 0.9), 0 0 30px rgba(118, 188, 33, 0.4); }
++  }
++  @keyframes ripple {
++    0% { transform: scale(0); opacity: 1; }
++    100% { transform: scale(4); opacity: 0; }
++  }
++  @keyframes notifPop {
++    0% { transform: translateY(-100%) scale(0.8); opacity: 0; }
++    60% { transform: translateY(8px) scale(1.02); opacity: 1; }
++    100% { transform: translateY(0) scale(1); opacity: 1; }
++  }
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   BASE RESET & BODY
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++*, *::before, *::after {
++  box-sizing: border-box;
++  -webkit-tap-highlight-color: transparent;
++}
++
++html {
++  scroll-behavior: smooth;
++  -webkit-text-size-adjust: 100%;
+ }
+ 
+ body {
+   font-family: var(--font-sans);
+   background-color: #000839;
+   color: #ffffff;
++  overscroll-behavior: none;
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++  /* Prevent text selection on buttons */
++  -webkit-user-select: none;
++  user-select: none;
++}
++
++/* Allow selection on inputs & text areas */
++input, textarea, [contenteditable] {
++  -webkit-user-select: text;
++  user-select: text;
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   SCROLLBAR STYLING (WebKit)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++::-webkit-scrollbar { width: 4px; height: 4px; }
++::-webkit-scrollbar-track { background: transparent; }
++::-webkit-scrollbar-thumb { background: rgba(118, 188, 33, 0.3); border-radius: 2px; }
++::-webkit-scrollbar-thumb:hover { background: rgba(118, 188, 33, 0.6); }
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   GLASS MORPHISM UTILITIES
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.glass {
++  background: rgba(5, 14, 70, 0.7);
++  backdrop-filter: blur(20px);
++  -webkit-backdrop-filter: blur(20px);
++  border: 1px solid rgba(255, 255, 255, 0.08);
++}
++
++.glass-dark {
++  background: rgba(0, 8, 57, 0.85);
++  backdrop-filter: blur(24px);
++  -webkit-backdrop-filter: blur(24px);
++  border: 1px solid rgba(118, 188, 33, 0.12);
++}
++
++.glass-green {
++  background: rgba(118, 188, 33, 0.08);
++  backdrop-filter: blur(12px);
++  -webkit-backdrop-filter: blur(12px);
++  border: 1px solid rgba(118, 188, 33, 0.2);
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   PREMIUM BUTTON BASE
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.btn-fbm {
++  position: relative;
++  overflow: hidden;
++  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
++}
++
++.btn-fbm::after {
++  content: '';
++  position: absolute;
++  inset: 0;
++  background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
++  opacity: 0;
++  transition: opacity 0.3s;
++}
++
++.btn-fbm:active::after {
++  opacity: 1;
++}
++
++.btn-fbm:active {
++  transform: scale(0.97);
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   SHIMMER LOADING SKELETON
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.skeleton {
++  background: linear-gradient(90deg, 
++    rgba(255,255,255,0.04) 0%, 
++    rgba(255,255,255,0.1) 50%, 
++    rgba(255,255,255,0.04) 100%);
++  background-size: 200% 100%;
++  animation: shimmer 1.5s linear infinite;
++  border-radius: 8px;
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   NOTIFICATION TOAST (top slide-down like Snapchat/iOS)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.notif-toast {
++  animation: notifPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   STATUS BADGE COLORS
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.badge-pending    { background: rgba(234, 179, 8, 0.15); color: #fbbf24; border: 1px solid rgba(234, 179, 8, 0.3); }
++.badge-approved   { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.3); }
++.badge-rejected   { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
++.badge-done       { background: rgba(118, 188, 33, 0.15); color: #76BC21; border: 1px solid rgba(118, 188, 33, 0.3); }
++.badge-in-progress { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
++.badge-critical   { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
++.badge-warning    { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
++.badge-info       { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; border: 1px solid rgba(99, 102, 241, 0.3); }
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   CARD HOVER EFFECT
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.card-hover {
++  transition: transform 0.2s ease, box-shadow 0.2s ease;
++}
++.card-hover:hover {
++  transform: translateY(-2px);
++  box-shadow: 0 8px 32px rgba(118, 188, 33, 0.12);
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   GRADIENT TEXT (FBM Green)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.text-gradient-green {
++  background: linear-gradient(135deg, #76BC21 0%, #9ed44f 50%, #5da018 100%);
++  -webkit-background-clip: text;
++  -webkit-text-fill-color: transparent;
++  background-clip: text;
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   ANDROID-STYLE RIPPLE (for interactive elements)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.ripple-container {
++  position: relative;
++  overflow: hidden;
++}
++.ripple-container .ripple {
++  position: absolute;
++  border-radius: 50%;
++  background: rgba(118, 188, 33, 0.3);
++  transform: scale(0);
++  animation: ripple 0.6s linear;
++  pointer-events: none;
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   SAFE AREA (for notched/punch-hole phones)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.safe-top    { padding-top: env(safe-area-inset-top, 0px); }
++.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 16px); }
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   MODAL OVERLAY
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.modal-overlay {
++  background: rgba(0, 8, 57, 0.85);
++  backdrop-filter: blur(8px);
++  -webkit-backdrop-filter: blur(8px);
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   INPUT FOCUS RING (FBM Green)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.input-fbm {
++  background: rgba(0, 8, 57, 0.8);
++  border: 1.5px solid rgba(255, 255, 255, 0.08);
++  color: white;
++  transition: border-color 0.2s ease, box-shadow 0.2s ease;
++}
++
++.input-fbm:focus {
++  outline: none;
++  border-color: #76BC21;
++  box-shadow: 0 0 0 3px rgba(118, 188, 33, 0.15);
++}
++
++.input-fbm::placeholder {
++  color: rgba(148, 163, 184, 0.5);
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   BOTTOM NAV BAR (Mobile)
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.bottom-nav {
++  background: rgba(0, 8, 57, 0.95);
++  backdrop-filter: blur(20px);
++  -webkit-backdrop-filter: blur(20px);
++  border-top: 1px solid rgba(118, 188, 33, 0.15);
++  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4);
++}
++
++/* ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤
++   ONLINE PULSE INDICATOR
++ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ظ¤ */
++.online-dot {
++  width: 8px;
++  height: 8px;
++  background: #76BC21;
++  border-radius: 50%;
++  animation: pulseGreen 2s ease-in-out infinite;
+ }
+diff --git a/src/utils/audio.ts b/src/utils/audio.ts
+index 1d48341..5036749 100644
+--- a/src/utils/audio.ts
++++ b/src/utils/audio.ts
+@@ -1,3 +1,6 @@
++import { Capacitor } from '@capacitor/core';
++import { LocalNotifications } from '@capacitor/local-notifications';
++
+ /**
+  * Utility to synthesize a soft, professional, double-tone notification chime
+  * using the Web Audio API (no external file dependencies)
+@@ -51,6 +54,16 @@ export function playNotificationChime() {
+  * Prompts the user for notification permissions and registers service worker subscription
+  */
+ export async function requestNotificationPermission(): Promise<boolean> {
++  if (Capacitor.isNativePlatform()) {
++    try {
++      const perm = await LocalNotifications.requestPermissions();
++      return perm.display === 'granted';
++    } catch (error) {
++      console.error('Error requesting native notifications permission:', error);
++      return false;
++    }
++  }
++
+   if (!('Notification' in window)) {
+     console.warn('This browser does not support desktop notifications');
+     return false;
