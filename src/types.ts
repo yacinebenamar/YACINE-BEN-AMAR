@@ -8,6 +8,9 @@ export interface AppUser {
   subRole?: 'worker' | 'supervisor' | 'driver' | 'accountant' | string;
   departments?: string[];
   fcmToken?: string;
+  avatarUrl?: string;
+  avatarColor?: string;
+  avatarEmoji?: string;
   permissions?: {
     canAccessAdminDashboard?: boolean;
     canViewAllExpenses?: boolean;

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import UserAvatar from './UserAvatar';
+import EditAvatarModal from './EditAvatarModal';
 import {
   AppUser,
   CompanyCategory,
@@ -104,6 +106,7 @@ interface WorkerDashboardProps {
   isDarkMode?: boolean;
   onToggleTheme?: () => void;
   sectionsVisibility: SectionVisibility[];
+  onUpdateUsers?: (newUsers: AppUser[]) => void;
 }
 
 export default function WorkerDashboard({
@@ -151,10 +154,21 @@ export default function WorkerDashboard({
   isDarkMode,
   onToggleTheme,
   sectionsVisibility = [],
+  onUpdateUsers,
 }: WorkerDashboardProps) {
   const [activeTab, setActiveTab] = useState<
     'expenses' | 'tasks' | 'attendance' | 'chat' | 'transfers' | 'orders' | 'camion'
   >('expenses');
+
+  const [editingAvatarUser, setEditingAvatarUser] = useState<AppUser | null>(null);
+
+  const handleSaveAvatar = (updatedUser: AppUser) => {
+    if (onUpdateUsers) {
+      const updatedList = users.map((u) => (u.uid === updatedUser.uid ? updatedUser : u));
+      onUpdateUsers(updatedList);
+    }
+    setEditingAvatarUser(null);
+  };
 
   // Dynamic permission helper mapping (defaulting to true if undefined)
   const isAllowed = (key: keyof NonNullable<AppUser['permissions']>) => {
@@ -868,9 +882,14 @@ export default function WorkerDashboard({
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4" dir="rtl">
           {/* Worker Profile Info */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-fbm-green hover:bg-fbm-green-hover text-white rounded-xl border border-fbm-green/30 flex items-center justify-center text-fbm-green font-bold">
-              {currentUser.fullName.charAt(0)}
-            </div>
+            <button
+              onClick={() => setEditingAvatarUser(currentUser)}
+              className="relative rounded-xl cursor-pointer hover:scale-105 transition-all outline-none"
+              title="تعديل صورتك الشخصية"
+            >
+              <UserAvatar user={currentUser} className="w-10 h-10 text-xs border border-slate-100 dark:border-fbm-blue-border/40" />
+              <span className="absolute bottom-0 -right-0.5 w-2.5 h-2.5 bg-fbm-green text-white rounded-full border border-white dark:border-fbm-blue-card"></span>
+            </button>
             <div className="text-right">
               <span className="block text-[10px] text-fbm-green font-extrabold">مرحباً بك في الخدمة</span>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{currentUser.fullName}</h2>
@@ -2446,6 +2465,16 @@ export default function WorkerDashboard({
               </form>
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingAvatarUser && (
+          <EditAvatarModal
+            user={editingAvatarUser}
+            onClose={() => setEditingAvatarUser(null)}
+            onSave={handleSaveAvatar}
+          />
         )}
       </AnimatePresence>
     </div>

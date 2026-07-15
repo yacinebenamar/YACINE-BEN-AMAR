@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { toast } from 'react-hot-toast';
 import { exportToCSV } from '../utils/export';
+import UserAvatar from './UserAvatar';
+import EditAvatarModal from './EditAvatarModal';
 import {
   AppUser,
   CompanyCategory,
@@ -349,6 +352,7 @@ export default function AdminDashboard({
   const [editExpenseDesc, setEditExpenseDesc] = useState('');
   const [editExpenseCategory, setEditExpenseCategory] = useState('');
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<AppUser | null>(null);
+  const [editingAvatarUser, setEditingAvatarUser] = useState<AppUser | null>(null);
 
   // Keys for draft local storage
   const taskDraftKey = `admin_task_draft_${currentUser.uid}`;
@@ -686,6 +690,18 @@ export default function AdminDashboard({
     onUpdateUsers(updated);
     setEditingPermissionsUser(null);
     alert('✅ تم تحديث صلاحيات الموظف وحفظها بنجاح!');
+  };
+
+  // Save edited user avatar to database and sync
+  const handleSaveAvatar = (updatedUser: AppUser) => {
+    const updated = users.map((u) => {
+      if (u.uid === updatedUser.uid) {
+        return updatedUser;
+      }
+      return u;
+    });
+    onUpdateUsers(updated);
+    setEditingAvatarUser(null);
   };
 
   // Toggle single permission checkbox
@@ -1611,10 +1627,14 @@ export default function AdminDashboard({
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
             </button>
-            <div className="relative w-10 h-10 rounded-full border border-fbm-green bg-fbm-green/10 flex items-center justify-center font-bold text-sm text-fbm-green font-sans">
-              ي
+            <button
+              onClick={() => setEditingAvatarUser(currentUser)}
+              className="relative w-10 h-10 rounded-full cursor-pointer hover:scale-105 transition-all outline-none"
+              title="تعديل الصورة الشخصية"
+            >
+              <UserAvatar user={currentUser} className="w-10 h-10 text-xs" />
               <span className="absolute bottom-0 -right-0 w-2.5 h-2.5 bg-fbm-green text-white rounded-full border-2 border-white dark:border-fbm-blue-card"></span>
-            </div>
+            </button>
           </div>
           <div className="flex items-center gap-2">
              <FBMLogo size="sm" />
@@ -1637,6 +1657,27 @@ export default function AdminDashboard({
               <p className="text-[10px] text-fbm-green font-bold">إدارة العمليات المركزية</p>
             </div>
           </div>
+
+          {/* Interactive Profile Customizer Card */}
+          <button
+            onClick={() => setEditingAvatarUser(currentUser)}
+            className="w-full flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-fbm-blue/40 border border-slate-100 dark:border-fbm-blue-border/60 hover:bg-slate-100 dark:hover:bg-fbm-blue/80 transition-all text-right cursor-pointer outline-none group"
+            title="اضغط لتعديل صورتك الشخصية"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="relative">
+                <UserAvatar user={currentUser} className="w-10 h-10 text-xs border border-white dark:border-slate-800" />
+                <span className="absolute bottom-0 -right-0.5 w-3 h-3 bg-fbm-green text-white rounded-full border-2 border-white dark:border-[#0c1445] flex items-center justify-center text-[6px]">✓</span>
+              </div>
+              <div className="truncate max-w-[130px]">
+                <h4 className="text-xs font-black text-slate-950 dark:text-white group-hover:text-fbm-green transition-colors truncate">{currentUser.fullName}</h4>
+                <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold mt-0.5">
+                  {currentUser.role === 'admin' ? 'المدير العام 👑' : 'موظف ميداني 👷‍♂️'}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-slate-400 group-hover:text-fbm-green transition-colors">⚙️</span>
+          </button>
           
           <nav className="space-y-1.5 mt-8">
             <button
@@ -2850,6 +2891,107 @@ export default function AdminDashboard({
                 </table>
               </div>
             </div>
+
+            {/* Manual Backup and Export Card */}
+            <div className="bg-white dark:bg-fbm-blue-card border border-slate-200 dark:border-fbm-blue-border rounded-2xl overflow-hidden shadow-sm mt-6">
+              <div className="p-5 border-b border-slate-200 dark:border-fbm-blue-border/60 bg-slate-50 dark:bg-fbm-blue/20 flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-slate-950 dark:text-white">النسخ الاحتياطي اليدوي وتصدير البيانات 📥</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">قم بتنزيل نسخة احتياطية محلية من المهام والمصاريف بصيغة JSON لحمايتها واستعادتها عند الحاجة.</p>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Stats Cards */}
+                  <div className="p-4 rounded-xl border border-slate-100 dark:border-fbm-blue-border/40 bg-slate-50/50 dark:bg-fbm-blue/20 text-center">
+                    <p className="text-xs text-slate-400">إجمالي المهام الحالية</p>
+                    <p className="text-2xl font-black text-fbm-green mt-1">{tasks.length}</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-slate-100 dark:border-fbm-blue-border/40 bg-slate-50/50 dark:bg-fbm-blue/20 text-center">
+                    <p className="text-xs text-slate-400">إجمالي المصاريف الحالية</p>
+                    <p className="text-2xl font-black text-amber-500 mt-1">{expenses.length}</p>
+                  </div>
+                  <div className="p-4 rounded-xl border border-slate-100 dark:border-fbm-blue-border/40 bg-slate-50/50 dark:bg-fbm-blue/20 text-center flex flex-col justify-center">
+                    <p className="text-xs text-slate-400">صيغة الملف المستخرج</p>
+                    <p className="text-lg font-black text-slate-700 dark:text-slate-300 mt-1">JSON Backup</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportData = {
+                        exportedBy: currentUser.fullName,
+                        role: currentUser.role,
+                        exportedAt: new Date().toISOString(),
+                        tasks: tasks
+                      };
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `fbm_tasks_backup_${new Date().toISOString().split('T')[0]}.json`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast.success('تم تصدير نسخة احتياطية من المهام بنجاح! 📥');
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-fbm-blue-border text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-fbm-blue/40 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    تصدير المهام فقط
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportData = {
+                        exportedBy: currentUser.fullName,
+                        role: currentUser.role,
+                        exportedAt: new Date().toISOString(),
+                        expenses: expenses
+                      };
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `fbm_expenses_backup_${new Date().toISOString().split('T')[0]}.json`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast.success('تم تصدير نسخة احتياطية من المصاريف بنجاح! 📥');
+                    }}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-fbm-blue-border text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-fbm-blue/40 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    تصدير المصاريف فقط
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exportData = {
+                        exportedBy: currentUser.fullName,
+                        role: currentUser.role,
+                        exportedAt: new Date().toISOString(),
+                        tasks: tasks,
+                        expenses: expenses
+                      };
+                      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `fbm_full_backup_${new Date().toISOString().split('T')[0]}.json`;
+                      link.click();
+                      URL.revokeObjectURL(url);
+                      toast.success('تم تصدير النسخة الاحتياطية الشاملة بنجاح! 🎉📥');
+                    }}
+                    className="bg-fbm-green hover:bg-fbm-green-hover text-white font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-lg shadow-[#76BC21]/15"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>تصدير وتحميل النسخة الاحتياطية الكاملة (JSON) 📥</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </motion.div>
         )}
 
@@ -3348,16 +3490,14 @@ export default function AdminDashboard({
                           }`}
                         >
                           <div className="flex items-start gap-3">
-                            {/* Circular Avatar Graphic with First Letter */}
-                            <div
-                              className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                                user.role === 'admin'
-                                  ? 'bg-fbm-green hover:bg-fbm-green-hover text-white text-fbm-green'
-                                  : 'bg-blue-900/40 text-blue-300'
-                              }`}
+                            {/* Dynamic Employee Avatar Customizer */}
+                            <button
+                              onClick={() => setEditingAvatarUser(user)}
+                              className="relative cursor-pointer hover:scale-105 transition-all outline-none rounded-xl"
+                              title="اضغط لتخصيص صورة الموظف"
                             >
-                              {user.fullName.trim().charAt(0)}
-                            </div>
+                              <UserAvatar user={user} className="w-9 h-9 text-xs border border-slate-200/50 dark:border-fbm-blue-border/40" />
+                            </button>
 
                             <div className="space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -4517,23 +4657,35 @@ export default function AdminDashboard({
                     return (
                       <div
                         key={msg.id}
-                        className={`flex flex-col max-w-[75%] ${isMe ? 'mr-auto items-start text-left' : 'ml-auto items-end text-right'}`}
+                        className={`flex gap-2.5 max-w-[85%] items-end my-1 ${isMe ? 'mr-auto flex-row' : 'ml-auto flex-row-reverse'}`}
                       >
-                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-0.5 px-1">
-                          {msg.senderName} {msg.senderRole === 'admin' && '⭐ الإدارة'}
-                        </span>
-                        <div
-                          className={`p-3 rounded-2xl text-xs leading-relaxed break-words text-right ${
-                            isMe
-                              ? 'bg-fbm-green hover:bg-fbm-green-hover text-white rounded-tr-none font-bold'
-                              : 'bg-white dark:bg-fbm-blue text-slate-900 dark:text-white border border-slate-200 dark:border-fbm-blue-border rounded-tl-none'
-                          }`}
-                        >
-                          {msg.text}
+                        <div className={`flex flex-col ${isMe ? 'items-start text-left' : 'items-end text-right'}`}>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold mb-0.5 px-1">
+                            {msg.senderName} {msg.senderRole === 'admin' && '⭐ الإدارة'}
+                          </span>
+                          <div
+                            className={`p-3 rounded-2xl text-xs leading-relaxed break-words text-right ${
+                              isMe
+                                ? 'bg-fbm-green hover:bg-fbm-green-hover text-white rounded-tr-none font-bold'
+                                : 'bg-white dark:bg-fbm-blue text-slate-900 dark:text-white border border-slate-200 dark:border-fbm-blue-border rounded-tl-none'
+                            }`}
+                          >
+                            {msg.text}
+                          </div>
+                          <span className="text-[8px] text-slate-500 font-mono mt-0.5 px-1">
+                            {new Date(msg.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                        <span className="text-[8px] text-slate-500 font-mono mt-0.5 px-1">
-                          {new Date(msg.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        {(() => {
+                          const sUser = users.find((u) => u.uid === msg.senderUid);
+                          return sUser ? (
+                            <UserAvatar user={sUser} className="w-7 h-7 text-[8px] shrink-0 border border-slate-200/50 dark:border-fbm-blue-border/40" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-xl bg-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0">
+                              {msg.senderName.trim().charAt(0)}
+                            </div>
+                          );
+                        })()}
                       </div>
                     );
                   })
@@ -4821,7 +4973,27 @@ export default function AdminDashboard({
               <span className="text-slate-900 dark:text-white font-bold">{editingPermissionsUser.fullName}</span>
             </p>
 
-            <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1 text-right">
+            {/* Quick Profile & Avatar Card inside Permissions Modal */}
+            <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-fbm-blue/40 border border-slate-100 dark:border-fbm-blue-border/40 mb-4 text-right">
+              <div className="flex items-center gap-3">
+                <UserAvatar user={editingPermissionsUser} className="w-11 h-11 text-xs" />
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-white">{editingPermissionsUser.fullName}</h4>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    {editingPermissionsUser.role === 'admin' ? 'المدير العام 👑' : 'موظف ميداني 👷‍♂️'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAvatarUser(editingPermissionsUser)}
+                className="bg-fbm-green/10 hover:bg-fbm-green/20 text-fbm-green text-[10px] font-black px-3 py-2 rounded-xl transition-all cursor-pointer border border-fbm-green/20"
+              >
+                تخصيص الصورة الشخصية 🎨
+              </button>
+            </div>
+
+            <div className="space-y-3.5 max-h-[45vh] overflow-y-auto pr-1 text-right">
               {/* Permission Item: Access Admin Dashboard */}
               <label className="flex items-start gap-3 bg-white dark:bg-fbm-blue p-3 rounded-xl border border-slate-200 dark:border-fbm-blue-border cursor-pointer hover:border-slate-300 dark:hover:border-white/10 transition-all">
                 <input
@@ -5050,6 +5222,13 @@ export default function AdminDashboard({
             </div>
           </motion.div>
         </div>
+      )}
+      {editingAvatarUser && (
+        <EditAvatarModal
+          user={editingAvatarUser}
+          onClose={() => setEditingAvatarUser(null)}
+          onSave={handleSaveAvatar}
+        />
       )}
       </AnimatePresence>
 

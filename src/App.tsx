@@ -51,6 +51,8 @@ import SmartLogin from './components/SmartLogin';
 import AdminDashboard from './components/AdminDashboard';
 import WorkerDashboard from './components/WorkerDashboard';
 import { isEqual } from './utils/safeStringify';
+import { queueOfflineOperation } from './utils/offlineManager';
+import OfflineSyncIndicator from './components/OfflineSyncIndicator';
 
 import { playNotificationChime } from './utils/audio';
 import { Bell, X } from 'lucide-react';
@@ -432,6 +434,50 @@ export default function App() {
     return () => clearInterval(interval);
   }, [tasks, notifications]);
 
+  // API Map for offline syncing
+  const apiMap: { [actionType: string]: (payload: any) => Promise<void> } = {
+    UPDATE_USER: saveUserToFirestore,
+    DELETE_USER: deleteUserFromFirestore,
+    SAVE_CATEGORY: saveCategoryToFirestore,
+    DELETE_CATEGORY: deleteCategoryFromFirestore,
+    SAVE_TASK: saveTaskToFirestore,
+    DELETE_TASK: deleteTaskFromFirestore,
+    ADD_EXPENSE: saveExpenseToFirestore,
+    DELETE_EXPENSE: deleteExpenseFromFirestore,
+    ADD_NOTIFICATION: saveNotificationToFirestore,
+    SAVE_ATTENDANCE: saveAttendanceToFirestore,
+    ADD_CHAT_MESSAGE: saveChatToFirestore,
+    ADD_TRANSFER: saveTransferToFirestore,
+    UPDATE_TRANSFER: saveTransferToFirestore,
+    DELETE_TRANSFER: deleteTransferFromFirestore,
+    ADD_CLIENT_ORDER: saveClientOrderToFirestore,
+    UPDATE_CLIENT_ORDER: saveClientOrderToFirestore,
+    DELETE_CLIENT_ORDER: deleteClientOrderFromFirestore,
+    ADD_CLIENT_DEBT: saveClientDebtToFirestore,
+    UPDATE_CLIENT_DEBT: saveClientDebtToFirestore,
+    DELETE_CLIENT_DEBT: deleteClientDebtFromFirestore,
+    ADD_CAMION_ROUTE: saveCamionRouteToFirestore,
+    UPDATE_CAMION_ROUTE: saveCamionRouteToFirestore,
+    DELETE_CAMION_ROUTE: deleteCamionRouteFromFirestore,
+    ADD_SUPPLIER_ALERT: saveSupplierAlertToFirestore,
+    UPDATE_SUPPLIER_ALERT: saveSupplierAlertToFirestore,
+    DELETE_SUPPLIER_ALERT: deleteSupplierAlertFromFirestore,
+    UPDATE_SECTIONS_VISIBILITY: saveSectionsVisibilityToFirestore,
+  };
+
+  const executeOrQueue = async (actionType: string, payload: any, saveFn: (p: any) => Promise<void>) => {
+    if (!navigator.onLine) {
+      queueOfflineOperation(actionType, payload);
+    } else {
+      try {
+        await saveFn(payload);
+      } catch (err) {
+        console.error(`Error executing ${actionType}, queueing instead:`, err);
+        queueOfflineOperation(actionType, payload);
+      }
+    }
+  };
+
   // Sync state changes with Cloud Firestore
   const handleUpdateUsers = async (newUsers: AppUser[]) => {
     const changed = newUsers.filter((newItem) => {
@@ -439,8 +485,14 @@ export default function App() {
       return !oldItem || !isEqual(oldItem, newItem);
     });
     setUsers(newUsers);
+    if (currentUser) {
+      const updatedSelf = newUsers.find((u) => u.uid === currentUser.uid);
+      if (updatedSelf && !isEqual(currentUser, updatedSelf)) {
+        setCurrentUser(updatedSelf);
+      }
+    }
     for (const item of changed) {
-      await saveUserToFirestore(item);
+      await executeOrQueue('UPDATE_USER', item, saveUserToFirestore);
     }
   };
 
@@ -451,7 +503,7 @@ export default function App() {
     });
     setCategories(newCategories);
     for (const item of changed) {
-      await saveCategoryToFirestore(item);
+      await executeOrQueue('SAVE_CATEGORY', item, saveCategoryToFirestore);
     }
   };
 
@@ -462,13 +514,13 @@ export default function App() {
     });
     setTasks(newTasks);
     for (const item of changed) {
-      await saveTaskToFirestore(item);
+      await executeOrQueue('SAVE_TASK', item, saveTaskToFirestore);
     }
   };
 
   const handleDeleteTask = async (id: string) => {
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    await deleteTaskFromFirestore(id);
+    await executeOrQueue('DELETE_TASK', id, deleteTaskFromFirestore);
   };
 
   const handleUpdateExpenses = async (newExpenses: CompanyExpense[]) => {
@@ -478,18 +530,18 @@ export default function App() {
     });
     setExpenses(newExpenses);
     for (const item of changed) {
-      await saveExpenseToFirestore(item);
+      await executeOrQueue('ADD_EXPENSE', item, saveExpenseToFirestore);
     }
   };
 
   const handleDeleteExpense = async (id: string) => {
     setExpenses((prev) => prev.filter((e) => e.id !== id));
-    await deleteExpenseFromFirestore(id);
+    await executeOrQueue('DELETE_EXPENSE', id, deleteExpenseFromFirestore);
   };
 
   const handleUpdateNotification = async (updatedNotif: CompanyNotification) => {
     setNotifications((prev) => prev.map((n) => (n.id === updatedNotif.id ? updatedNotif : n)));
-    await saveNotificationToFirestore(updatedNotif);
+    await executeOrQueue('ADD_NOTIFICATION', updatedNotif, saveNotificationToFirestore);
   };
 
   const handleUpdateNotifications = async (newNotifications: CompanyNotification[]) => {
@@ -499,7 +551,7 @@ export default function App() {
     });
     setNotifications(newNotifications);
     for (const item of changed) {
-      await saveNotificationToFirestore(item);
+      await executeOrQueue('ADD_NOTIFICATION', item, saveNotificationToFirestore);
     }
   };
 
@@ -523,12 +575,12 @@ export default function App() {
         return [record, ...prev];
       }
     });
-    await saveAttendanceToFirestore(record);
+    await executeOrQueue('SAVE_ATTENDANCE', record, saveAttendanceToFirestore);
   };
 
   const handleAddChatMessage = async (msg: ChatMessage) => {
     setChatMessages((prev) => [...prev, msg]);
-    await saveChatToFirestore(msg);
+    await executeOrQueue('ADD_CHAT_MESSAGE', msg, saveChatToFirestore);
   };
 
   const handleAddExpense = (newExpense: CompanyExpense) => {
@@ -656,71 +708,71 @@ export default function App() {
   // Mutators for StockTransfers
   const handleAddTransfer = async (t: StockTransfer) => {
     setTransfers((prev) => [t, ...prev]);
-    await saveTransferToFirestore(t);
+    await executeOrQueue('ADD_TRANSFER', t, saveTransferToFirestore);
   };
   const handleUpdateTransfer = async (t: StockTransfer) => {
     setTransfers((prev) => prev.map((item) => (item.id === t.id ? t : item)));
-    await saveTransferToFirestore(t);
+    await executeOrQueue('UPDATE_TRANSFER', t, saveTransferToFirestore);
   };
   const handleDeleteTransfer = async (id: string) => {
     setTransfers((prev) => prev.filter((item) => item.id !== id));
-    await deleteTransferFromFirestore(id);
+    await executeOrQueue('DELETE_TRANSFER', id, deleteTransferFromFirestore);
   };
 
   // Mutators for ClientOrders
   const handleAddClientOrder = async (o: ClientOrder) => {
     setClientOrders((prev) => [o, ...prev]);
-    await saveClientOrderToFirestore(o);
+    await executeOrQueue('ADD_CLIENT_ORDER', o, saveClientOrderToFirestore);
   };
   const handleUpdateClientOrder = async (o: ClientOrder) => {
     setClientOrders((prev) => prev.map((item) => (item.id === o.id ? o : item)));
-    await saveClientOrderToFirestore(o);
+    await executeOrQueue('UPDATE_CLIENT_ORDER', o, saveClientOrderToFirestore);
   };
   const handleDeleteClientOrder = async (id: string) => {
     setClientOrders((prev) => prev.filter((item) => item.id !== id));
-    await deleteClientOrderFromFirestore(id);
+    await executeOrQueue('DELETE_CLIENT_ORDER', id, deleteClientOrderFromFirestore);
   };
 
   // Mutators for ClientDebts
   const handleAddClientDebt = async (d: ClientDebt) => {
     setClientDebts((prev) => [d, ...prev]);
-    await saveClientDebtToFirestore(d);
+    await executeOrQueue('ADD_CLIENT_DEBT', d, saveClientDebtToFirestore);
   };
   const handleUpdateClientDebt = async (d: ClientDebt) => {
     setClientDebts((prev) => prev.map((item) => (item.id === d.id ? d : item)));
-    await saveClientDebtToFirestore(d);
+    await executeOrQueue('UPDATE_CLIENT_DEBT', d, saveClientDebtToFirestore);
   };
   const handleDeleteClientDebt = async (id: string) => {
     setClientDebts((prev) => prev.filter((item) => item.id !== id));
-    await deleteClientDebtFromFirestore(id);
+    await executeOrQueue('DELETE_CLIENT_DEBT', id, deleteClientDebtFromFirestore);
   };
 
   // Mutators for CamionRoutes
   const handleAddCamionRoute = async (r: CamionRoute) => {
     setCamionRoutes((prev) => [r, ...prev]);
-    await saveCamionRouteToFirestore(r);
+    await executeOrQueue('ADD_CAMION_ROUTE', r, saveCamionRouteToFirestore);
   };
   const handleUpdateCamionRoute = async (r: CamionRoute) => {
     setCamionRoutes((prev) => prev.map((item) => (item.id === r.id ? r : item)));
-    await saveCamionRouteToFirestore(r);
+    await executeOrQueue('UPDATE_CAMION_ROUTE', r, saveCamionRouteToFirestore);
   };
   const handleDeleteCamionRoute = async (id: string) => {
     setCamionRoutes((prev) => prev.filter((item) => item.id !== id));
-    await deleteCamionRouteFromFirestore(id);
+    await executeOrQueue('DELETE_CAMION_ROUTE', id, deleteCamionRouteFromFirestore);
   };
 
   // Mutators for SupplierAlerts
   const handleAddSupplierAlert = async (s: SupplierAlert) => {
     setSupplierAlerts((prev) => [s, ...prev]);
-    await saveSupplierAlertToFirestore(s);
+    await executeOrQueue('ADD_SUPPLIER_ALERT', s, saveSupplierAlertToFirestore);
   };
   const handleUpdateSupplierAlert = async (s: SupplierAlert) => {
     setSupplierAlerts((prev) => prev.map((item) => (item.id === s.id ? s : item)));
-    await saveSupplierAlertToFirestore(s);
+    await executeOrQueue('UPDATE_SUPPLIER_ALERT', s, saveSupplierAlertToFirestore);
   };
   const handleDeleteSupplierAlert = async (id: string) => {
     setSupplierAlerts((prev) => prev.filter((item) => item.id !== id));
-    await deleteSupplierAlertFromFirestore(id);
+    await executeOrQueue('DELETE_SUPPLIER_ALERT', id, deleteSupplierAlertFromFirestore);
   };
 
   if (isInitializing || !isUsersLoaded) {
@@ -754,6 +806,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-fbm-blue">
       <ToasterSetup />
+      <OfflineSyncIndicator apiMap={apiMap} />
       {currentUser === null ? (
         <SmartLogin users={users} onLogin={handleLoginSuccess} />
       ) : currentUser.role === 'worker' || adminViewMode === 'worker' ? (
@@ -771,6 +824,7 @@ export default function App() {
           onUpdateTaskStatus={handleUpdateTaskStatus}
           onUpdateNotifications={handleUpdateNotifications}
           onUpdateNotification={handleUpdateNotification}
+          onUpdateUsers={handleUpdateUsers}
           
           onUpdateAttendance={handleUpdateAttendance}
           onAddChatMessage={handleAddChatMessage}
