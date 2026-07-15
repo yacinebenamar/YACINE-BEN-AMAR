@@ -7,6 +7,7 @@ export interface AppUser {
   password?: string;
   subRole?: 'worker' | 'supervisor' | 'driver' | 'accountant' | string;
   departments?: string[];
+  fcmToken?: string;
   permissions?: {
     canAccessAdminDashboard?: boolean;
     canViewAllExpenses?: boolean;
@@ -35,8 +36,8 @@ export interface CompanyTask {
   title: string;
   description: string;
   categoryName: string;
-  assignedToUid: string;
-  assignedToName: string;
+  assignedToUids: string[];
+  assignedToNames: string[];
   status: 'pending' | 'in_progress' | 'done';
   createdAt: string;
   startedAt?: string | null;
@@ -69,8 +70,9 @@ export interface CompanyNotification {
   title: string;
   body: string;
   targetType: 'all' | 'specific';
-  targetUid?: string | null;
-  isRead: boolean;
+  targetUids?: string[] | null;
+  readByUids: string[];
+  createdByUid?: string;
   createdAt: string;
 }
 
@@ -175,5 +177,12 @@ export interface SupplierAlert {
   qtyNeeded?: number;
   notes?: string;
   quantityIssue?: number;
+}
+
+export interface SectionVisibility {
+  id: string;
+  name: string;
+  workerState: 'active' | 'hidden' | 'soon';
+  supervisorState: 'active' | 'hidden' | 'soon';
 }
 

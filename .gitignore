@@ -1,8 +1,25 @@
-node_modules/
-build/
-dist/
-coverage/
+node_modules
+*.zip
+*.tsbuildinfo
 .DS_Store
 *.log
-.env*
-!.env.example
+android/app/build/outputs
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+dist/
+
+# Android
+android/app/build/
+
+# Logs
+*.log
+
+android/app/src/main/assets/public/*
+*.tsbuildinfo
+*.zip
+*.apk

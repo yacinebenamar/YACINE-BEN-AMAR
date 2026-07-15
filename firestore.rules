@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Relax rules since the application uses a custom credentials look-up rather than Firebase Auth
+    // التطبيق يستخدم نظام تسجيل دخول محلي مخصص، لذا يجب السماح بالقراءة والكتابة
     match /{document=**} {
       allow read, write: if true;
     }

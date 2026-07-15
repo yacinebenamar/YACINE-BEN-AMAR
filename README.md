@@ -1,20 +1,54 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# FBM ERP - نظام إدارة الشركات
 
-# Run and deploy your AI Studio app
+تطبيق ويب تقدمي (PWA) متكامل لإدارة الأعمال والموارد البشرية والمخازن والديون والمصاريف، مصمم خصيصا للعمل في الميدان وفي المكتب مع مزامنة فورية عبر Firebase.
 
-This contains everything you need to run your app locally.
+## المميزات الرئيسية
+- **لوحة إدارة متكاملة**: تتيح للمدير الإشراف على كل أقسام العمل بلمحة بصر.
+- **لوحة العمال**: واجهة مبسطة ومخصصة للموظفين لتسجيل الحضور، المهام، المصاريف.
+- **تتبع الحضور بنظام GPS**: يسجل موقع وتوقيت تسجيل الدخول/الخروج.
+- **المهام الميدانية والتوقيعات**: يتيح توثيق المهام المنجزة بالصور والتوقيعات والموقع الجغرافي.
+- **مزامنة فورية (Real-time)**: تحديثات لحظية باستخدام Firebase Firestore.
+- **إدارة الصلاحيات بدقة**: يمكن تخصيص ما يمكن للمستخدم رؤيته أو تعديله (مهام، ديون، مصاريف، ...).
 
-View your app in AI Studio: https://ai.studio/apps/2e411b1f-045e-4b8e-a5fc-9161d68cf384
+## المتطلبات المسبقة
+- Node.js (الإصدار 18 فما فوق)
+- npm أو yarn
+- حساب Firebase لإعداد قاعدة البيانات والمصادقة
 
-## Run Locally
+## التثبيت والتشغيل
 
-**Prerequisites:**  Node.js
+1. **تثبيت الاعتمادات (Dependencies):**
+   \`\`\`bash
+   npm install
+   \`\`\`
 
+2. **إعداد بيئة Firebase:**
+   يجب عليك توفير المتغيرات البيئية التالية (في ملف \`.env\` أو من خلال المنصة):
+   \`\`\`env
+   VITE_FIREBASE_API_KEY=your_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   \`\`\`
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. **تشغيل سيرفر التطوير:**
+   \`\`\`bash
+   npm run dev
+   \`\`\`
+   التطبيق سيعمل محلياً على المنفذ \`3000\`.
+
+4. **بناء التطبيق للإنتاج:**
+   \`\`\`bash
+   npm run build
+   \`\`\`
+
+## فحص الكود والتنسيق (Linting & Formatting)
+يمكنك التأكد من جودة الكود من خلال:
+\`\`\`bash
+npm run lint
+\`\`\`
+
+---
+تم تطوير النظام باستخدام React, Vite, TailwindCSS, و Firebase.

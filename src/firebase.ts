@@ -1,31 +1,55 @@
 import { initializeApp } from 'firebase/app';
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  setDoc, 
-  getDocs, 
-  onSnapshot, 
+import { getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  onSnapshot,
   deleteDoc,
   query,
-  orderBy
+  orderBy,
 } from 'firebase/firestore';
-import { AppUser, CompanyCategory, CompanyTask, CompanyExpense, CompanyNotification, AttendanceRecord, ChatMessage } from './types';
+import {
+  AppUser,
+  CompanyCategory,
+  CompanyTask,
+  CompanyExpense,
+  CompanyNotification,
+  AttendanceRecord,
+  ChatMessage,
+  SectionVisibility,
+} from './types';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCBoD-WuzL4ZoicKk4tFEU8khaYxy7Krlg",
-  authDomain: "ben-amar-erp.firebaseapp.com",
-  projectId: "ben-amar-erp",
-  storageBucket: "ben-amar-erp.firebasestorage.app",
-  messagingSenderId: "446005687299",
-  appId: "1:446005687299:web:6e942db6c53cf7376e4a36"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCBoD-WuzL4ZoicKk4tFEU8khaYxy7Krlg',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'ben-amar-erp.firebaseapp.com',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'ben-amar-erp',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'ben-amar-erp.firebasestorage.app',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '446005687299',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:446005687299:web:6e942db6c53cf7376e4a36',
 };
+
+console.log('FIREBASE CONFIG:', firebaseConfig, 'DB ID:', import.meta.env.VITE_FIREBASE_DB_ID);
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with custom database ID from config
-export const db = getFirestore(app, "ai-studio-benamarenterpris-2e411b1f-045e-4b8e-a5fc-9161d68cf384");
+// Initialize Firestore with custom database ID and durable offline persistent local cache
+export const auth = getAuth(app);
+export const db = initializeFirestore(
+  app,
+  {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  },
+  import.meta.env.VITE_FIREBASE_DB_ID || 'ai-studio-benamarenterpris-2e411b1f-045e-4b8e-a5fc-9161d68cf384',
+);
 
 // Collection Names
 const COLL_USERS = 'users';
@@ -39,20 +63,19 @@ const COLL_CHAT = 'chat';
 // Admin Account Requested
 export const ADMIN_USER: AppUser = {
   uid: 'admin_yacine',
-  email: 'yacine@benamar.local',
+  email: 'yacine@fbm.local',
   role: 'admin',
   fullName: 'YACINE',
   isActive: true,
-  password: 'Benamor62'
 };
 
 // Clean undefined properties from Firestore payloads
 function cleanUndefined<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== 'object') return obj;
-  
+
   const cleaned = Array.isArray(obj) ? [] : {};
-  
+
   for (const key of Object.keys(obj as any)) {
     const value = (obj as any)[key];
     if (value !== undefined) {
@@ -84,14 +107,13 @@ export async function seedFirestoreIfNeeded() {
 
     const catSnap = await getDocs(collection(db, COLL_CATEGORIES));
     if (catSnap.empty) {
-      console.log('Seeding initial empty categories...');
       // Minimal categories without "experimental names" or with standard empty ones
       const initialCategories: CompanyCategory[] = [
         { id: 'cat_exp_1', name: 'وقود ونقل', type: 'expense' },
         { id: 'cat_exp_2', name: 'شراء بضاعة', type: 'expense' },
         { id: 'cat_exp_3', name: 'صيانة المعدات', type: 'expense' },
         { id: 'cat_task_1', name: 'عمليات ميدانية', type: 'task' },
-        { id: 'cat_task_2', name: 'ترتيب المستودع', type: 'task' }
+        { id: 'cat_task_2', name: 'ترتيب المستودع', type: 'task' },
       ];
       for (const cat of initialCategories) {
         await setDocSafe(doc(db, COLL_CATEGORIES, cat.id), cat);
@@ -101,7 +123,6 @@ export async function seedFirestoreIfNeeded() {
     // Seed stock transfers if empty
     const transferSnap = await getDocs(collection(db, COLL_TRANSFERS));
     if (transferSnap.empty) {
-      console.log('Seeding stock transfers...');
       const initialTransfers = [
         {
           id: 'tr_1',
@@ -113,7 +134,7 @@ export async function seedFirestoreIfNeeded() {
           movedByName: 'العامل سعيد',
           isEnteredInSalesSystem: false,
           createdAt: new Date().toISOString(),
-          status: 'pending'
+          status: 'pending',
         },
         {
           id: 'tr_2',
@@ -128,8 +149,8 @@ export async function seedFirestoreIfNeeded() {
           enteredByName: 'ياسين',
           enteredAt: new Date().toISOString(),
           createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-          status: 'verified'
-        }
+          status: 'verified',
+        },
       ];
       for (const tr of initialTransfers) {
         await setDocSafe(doc(db, COLL_TRANSFERS, tr.id), tr);
@@ -139,7 +160,6 @@ export async function seedFirestoreIfNeeded() {
     // Seed client orders if empty
     const orderSnap = await getDocs(collection(db, COLL_CLIENT_ORDERS));
     if (orderSnap.empty) {
-      console.log('Seeding client orders...');
       // Tuesday scheduled order
       const nextTuesday = new Date();
       nextTuesday.setDate(nextTuesday.getDate() + ((2 + 7 - nextTuesday.getDay()) % 7 || 7));
@@ -154,7 +174,7 @@ export async function seedFirestoreIfNeeded() {
           status: 'pending',
           items: '50 براطفورس، 10 ممتص صدمات، 30 تيل فرامل هندي',
           createdAt: new Date().toISOString(),
-          notes: 'يرجى التنبيه وتجهيز الطلب قبل يوم الثلاثاء!'
+          notes: 'يرجى التنبيه وتجهيز الطلب قبل يوم الثلاثاء!',
         },
         {
           id: 'ord_2',
@@ -164,8 +184,8 @@ export async function seedFirestoreIfNeeded() {
           status: 'preparing',
           items: '15 فلتر زيت، 10 طقم دبرياج صيني',
           createdAt: new Date().toISOString(),
-          notes: 'الزبون مستعجل جداً'
-        }
+          notes: 'الزبون مستعجل جداً',
+        },
       ];
       for (const ord of initialOrders) {
         await setDocSafe(doc(db, COLL_CLIENT_ORDERS, ord.id), ord);
@@ -175,7 +195,6 @@ export async function seedFirestoreIfNeeded() {
     // Seed client debts if empty
     const debtSnap = await getDocs(collection(db, COLL_CLIENT_DEBTS));
     if (debtSnap.empty) {
-      console.log('Seeding client debts...');
       const initialDebts = [
         {
           id: 'debt_1',
@@ -184,7 +203,7 @@ export async function seedFirestoreIfNeeded() {
           dueDate: new Date(Date.now() - 86400000 * 5).toISOString().split('T')[0], // 5 days overdue
           status: 'unpaid',
           createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-          notes: 'فاتورة قطع الغيار لشهر جوان - تأخر في السداد'
+          notes: 'فاتورة قطع الغيار لشهر جوان - تأخر في السداد',
         },
         {
           id: 'debt_2',
@@ -193,8 +212,8 @@ export async function seedFirestoreIfNeeded() {
           dueDate: new Date(Date.now() + 86400000 * 10).toISOString().split('T')[0], // 10 days in future
           status: 'unpaid',
           createdAt: new Date().toISOString(),
-          notes: 'باقي بون طلبيات هندي'
-        }
+          notes: 'باقي بون طلبيات هندي',
+        },
       ];
       for (const d of initialDebts) {
         await setDocSafe(doc(db, COLL_CLIENT_DEBTS, d.id), d);
@@ -204,7 +223,6 @@ export async function seedFirestoreIfNeeded() {
     // Seed camion routes if empty
     const routeSnap = await getDocs(collection(db, COLL_CAMION_ROUTES));
     if (routeSnap.empty) {
-      console.log('Seeding camion routes...');
       const initialRoutes = [
         {
           id: 'route_1',
@@ -212,9 +230,23 @@ export async function seedFirestoreIfNeeded() {
           routePath: 'البليدة - الجزائر العاصمة',
           driverName: 'عمي عيسى',
           clients: [
-            { id: 'c_1', name: 'محل النور - البليدة', location: 'البليدة وسط', phone: '0550123456', calledStatus: 'not_called', notes: 'يأخذ طلبيات زيت وفلاتر' },
-            { id: 'c_2', name: 'قطع غيار السلام - الحراش', location: 'الحراش', phone: '0661223344', calledStatus: 'order_taken', notes: 'تم أخذ الطلبية بنجاح' }
-          ]
+            {
+              id: 'c_1',
+              name: 'محل النور - البليدة',
+              location: 'البليدة وسط',
+              phone: '0550123456',
+              calledStatus: 'not_called',
+              notes: 'يأخذ طلبيات زيت وفلاتر',
+            },
+            {
+              id: 'c_2',
+              name: 'قطع غيار السلام - الحراش',
+              location: 'الحراش',
+              phone: '0661223344',
+              calledStatus: 'order_taken',
+              notes: 'تم أخذ الطلبية بنجاح',
+            },
+          ],
         },
         {
           id: 'route_2',
@@ -222,8 +254,15 @@ export async function seedFirestoreIfNeeded() {
           routePath: 'المدية - عين بوسيف',
           driverName: 'عمي عيسى',
           clients: [
-            { id: 'c_3', name: 'شاب شينوا - المدية', location: 'المدية وسط', phone: '0770987654', calledStatus: 'not_called', notes: 'يتطلب الاتصال الأحد مساءً' }
-          ]
+            {
+              id: 'c_3',
+              name: 'شاب شينوا - المدية',
+              location: 'المدية وسط',
+              phone: '0770987654',
+              calledStatus: 'not_called',
+              notes: 'يتطلب الاتصال الأحد مساءً',
+            },
+          ],
         },
         {
           id: 'route_3',
@@ -231,9 +270,16 @@ export async function seedFirestoreIfNeeded() {
           routePath: 'بومرداس - رغاية',
           driverName: 'عمي عيسى',
           clients: [
-            { id: 'c_4', name: 'محل الأخوة رغاية', location: 'رغاية', phone: '0555998877', calledStatus: 'called_no_answer', notes: 'إعادة الاتصال لتأكيد الطلب صباح الاثنين' }
-          ]
-        }
+            {
+              id: 'c_4',
+              name: 'محل الأخوة رغاية',
+              location: 'رغاية',
+              phone: '0555998877',
+              calledStatus: 'called_no_answer',
+              notes: 'إعادة الاتصال لتأكيد الطلب صباح الاثنين',
+            },
+          ],
+        },
       ];
       for (const r of initialRoutes) {
         await setDocSafe(doc(db, COLL_CAMION_ROUTES, r.id), r);
@@ -243,7 +289,6 @@ export async function seedFirestoreIfNeeded() {
     // Seed supplier alerts if empty
     const supplierSnap = await getDocs(collection(db, COLL_SUPPLIER_ALERTS));
     if (supplierSnap.empty) {
-      console.log('Seeding supplier alerts...');
       const initialSuppliers = [
         {
           id: 'sup_1',
@@ -252,7 +297,7 @@ export async function seedFirestoreIfNeeded() {
           description: 'نقص 5 علب تيل فرامل في الحاوية الأخيرة المستلمة',
           isResolved: false,
           createdAt: new Date().toISOString(),
-          dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0]
+          dueDate: new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0],
         },
         {
           id: 'sup_2',
@@ -261,38 +306,54 @@ export async function seedFirestoreIfNeeded() {
           description: 'تسديد دفعة فاتورة الاستيراد بقيمة 800,000 دج',
           isResolved: false,
           createdAt: new Date().toISOString(),
-          dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0]
-        }
+          dueDate: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
+        },
       ];
       for (const s of initialSuppliers) {
         await setDocSafe(doc(db, COLL_SUPPLIER_ALERTS, s.id), s);
       }
     }
 
+    // Seed section visibility if empty
+    const settingsDocRef = doc(db, COLL_APP_SETTINGS, 'sections_visibility');
+    const settingsSnap = await getDoc(settingsDocRef);
+    if (!settingsSnap.exists()) {
+      const defaultVisibility: SectionVisibility[] = [
+        { id: 'expenses', name: 'المصاريف', workerState: 'active', supervisorState: 'active' },
+        { id: 'tasks', name: 'المهام', workerState: 'active', supervisorState: 'active' },
+        { id: 'transfers', name: 'التحويلات (السلع)', workerState: 'active', supervisorState: 'active' },
+        { id: 'orders', name: 'الطلبيات والبونات', workerState: 'active', supervisorState: 'active' },
+        { id: 'debts', name: 'الديون والمستحقات', workerState: 'hidden', supervisorState: 'active' },
+        { id: 'camion', name: 'خطوط التوزيع والمسار', workerState: 'active', supervisorState: 'active' },
+        { id: 'attendance', name: 'تسجيل الحضور', workerState: 'active', supervisorState: 'active' },
+        { id: 'chat', name: 'دردشة الفريق', workerState: 'active', supervisorState: 'active' },
+      ];
+      await setDocSafe(settingsDocRef, { list: defaultVisibility });
+    }
   } catch (error) {
     console.error('Error seeding firestore:', error);
   }
 }
 
 // Generic Firestore Sync Helpers
-export function subscribeToCollection<T>(
-  collectionName: string, 
-  onUpdate: (data: T[]) => void,
-  sortField?: string
-) {
+export function subscribeToCollection<T>(collectionName: string, onUpdate: (data: T[]) => void, sortField?: string) {
   let q = collection(db, collectionName);
   if (sortField) {
     q = query(q, orderBy(sortField, 'desc')) as any;
   }
-  return onSnapshot(q, (snapshot) => {
-    const items: T[] = [];
-    snapshot.forEach((doc) => {
-      items.push({ id: doc.id, ...doc.data() } as any);
-    });
-    onUpdate(items);
-  }, (error) => {
-    console.error(`Error syncing collection ${collectionName}:`, error);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const items: T[] = [];
+      snapshot.forEach((doc) => {
+        items.push({ id: doc.id, ...doc.data() } as any);
+      });
+      onUpdate(items);
+    },
+    (error) => {
+      console.error(`Error syncing collection ${collectionName}:`, error);
+    },
+  );
 }
 
 // Individual Set/Delete helpers to make syncing seamless
@@ -390,5 +451,33 @@ export async function saveSupplierAlertToFirestore(alert: any) {
 
 export async function deleteSupplierAlertFromFirestore(id: string) {
   await deleteDoc(doc(db, COLL_SUPPLIER_ALERTS, id));
+}
+
+// App Settings & Section Visibility
+export const COLL_APP_SETTINGS = 'app_settings';
+
+export async function saveSectionsVisibilityToFirestore(visibilityList: SectionVisibility[]) {
+  const docRef = doc(db, COLL_APP_SETTINGS, 'sections_visibility');
+  await setDocSafe(docRef, { list: visibilityList }, { merge: true });
+}
+
+export function subscribeToSectionsVisibility(onUpdate: (data: SectionVisibility[]) => void) {
+  const docRef = doc(db, COLL_APP_SETTINGS, 'sections_visibility');
+  return onSnapshot(
+    docRef,
+    (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && Array.isArray(data.list)) {
+          onUpdate(data.list);
+          return;
+        }
+      }
+      onUpdate([]);
+    },
+    (error) => {
+      console.error('Error syncing sections visibility:', error);
+    }
+  );
 }
 

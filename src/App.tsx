@@ -1,20 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  AppUser, 
-  CompanyCategory, 
-  CompanyTask, 
-  CompanyExpense, 
-  CompanyNotification, 
-  AttendanceRecord, 
+import ToasterSetup from './components/ToasterSetup';
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { PushNotifications } from '@capacitor/push-notifications';
+import {
+  AppUser,
+  CompanyCategory,
+  CompanyTask,
+  CompanyExpense,
+  CompanyNotification,
+  AttendanceRecord,
   ChatMessage,
   StockTransfer,
   ClientOrder,
   ClientDebt,
   CamionRoute,
-  SupplierAlert
+  SupplierAlert,
+  SectionVisibility,
 } from './types';
 import { getStoredData, setStoredData } from './data';
-import { 
+import {
   seedFirestoreIfNeeded,
   subscribeToCollection,
   saveUserToFirestore,
@@ -38,11 +43,15 @@ import {
   saveCamionRouteToFirestore,
   deleteCamionRouteFromFirestore,
   saveSupplierAlertToFirestore,
-  deleteSupplierAlertFromFirestore
+  deleteSupplierAlertFromFirestore,
+  saveSectionsVisibilityToFirestore,
+  subscribeToSectionsVisibility,
 } from './firebase';
 import SmartLogin from './components/SmartLogin';
 import AdminDashboard from './components/AdminDashboard';
 import WorkerDashboard from './components/WorkerDashboard';
+import { isEqual } from './utils/safeStringify';
+
 import { playNotificationChime } from './utils/audio';
 import { Bell, X } from 'lucide-react';
 
@@ -55,23 +64,41 @@ export default function App() {
   const [notifications, setNotifications] = useState<CompanyNotification[]>([]);
   const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  
+  const [sectionsVisibility, setSectionsVisibility] = useState<SectionVisibility[]>([]);
+
   // New States for auto spare parts wholesale business operations
   const [transfers, setTransfers] = useState<StockTransfer[]>([]);
   const [clientOrders, setClientOrders] = useState<ClientOrder[]>([]);
   const [clientDebts, setClientDebts] = useState<ClientDebt[]>([]);
   const [camionRoutes, setCamionRoutes] = useState<CamionRoute[]>([]);
   const [supplierAlerts, setSupplierAlerts] = useState<SupplierAlert[]>([]);
-  
+
   // Auth state
   const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isUsersLoaded, setIsUsersLoaded] = useState(false);
   const [adminViewMode, setAdminViewMode] = useState<'admin' | 'worker'>('admin');
 
   // Audio and Toast Notification alerts
   const knownNotificationIdsRef = useRef<Set<string>>(new Set());
   const isFirstNotificationsLoadRef = useRef(true);
   const [activeToast, setActiveToast] = useState<{ id: string; title: string; body: string } | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('theme');
+    return saved ? saved === 'dark' : true;
+  });
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
   // Initialize data on mount
   useEffect(() => {
@@ -87,26 +114,77 @@ export default function App() {
     let unsubClientDebts = () => {};
     let unsubCamionRoutes = () => {};
     let unsubSupplierAlerts = () => {};
+    let unsubSectionsVisibility = () => {};
 
     const initAndSync = async () => {
       // Seed initial admin if needed
       await seedFirestoreIfNeeded();
 
+      // ─── Native Android Notification Channel Setup ───────────────────────────
+      // CRITICAL: Without a notification channel, no notifications appear on Android 8+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Request permission first (Android 13+)
+          const permResult = await LocalNotifications.requestPermissions();
+          console.log('[FBM] Notification permission:', permResult.display);
+
+          // Create HIGH-importance channel for business alerts (heads-up popup)
+          await LocalNotifications.createChannel({
+            id: 'fbm-main-channel',
+            name: 'FBM - إشعارات فورية',
+            description: 'إشعارات المهام، المصاريف، والتنبيهات الفورية',
+            importance: 5, // IMPORTANCE_HIGH — heads-up, appears in notification drawer
+            visibility: 1, // VISIBILITY_PUBLIC — visible on lock screen
+            vibration: true,
+            lights: true,
+            lightColor: '#76BC21',
+            sound: 'default',
+          });
+
+          // Create LOW-importance channel for the keep-alive service notification
+          await LocalNotifications.createChannel({
+            id: 'fbm-keepalive-channel',
+            name: 'FBM - نظام متصل',
+            description: 'خدمة الاتصال المستمر بالخادم',
+            importance: 1, // IMPORTANCE_MIN — silent, no popup
+            visibility: -1, // VISIBILITY_SECRET — hidden on lock screen
+            vibration: false,
+            lights: false,
+            sound: undefined,
+          });
+
+          console.log('[FBM] Notification channels created.');
+        } catch (e) {
+          console.error('[FBM] Error setting up notification channels:', e);
+        }
+
+        // ─── Request Battery Optimization Exemption ──────────────────────────
+        // The native FBMBackgroundService handles this via foreground service.
+        // Log that background service should be running.
+        console.log('[FBM] Background keep-alive service is active via FBMBackgroundService.');
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       // Subscribe to real-time updates from Cloud Firestore
       unsubUsers = subscribeToCollection<AppUser>('users', (data) => {
         // Keep active users first, or sorted as needed
         setUsers(data);
+        setIsUsersLoaded(true);
       });
       unsubCategories = subscribeToCollection<CompanyCategory>('categories', setCategories);
       unsubTasks = subscribeToCollection<CompanyTask>('tasks', setTasks);
       unsubExpenses = subscribeToCollection<CompanyExpense>('expenses', setExpenses);
       unsubNotifications = subscribeToCollection<CompanyNotification>('notifications', setNotifications, 'createdAt');
       unsubAttendance = subscribeToCollection<AttendanceRecord>('attendance', setAttendance, 'clockInTime');
-      unsubChat = subscribeToCollection<ChatMessage>('chat', (msgs) => {
-        // Sort by oldest first so chat displays linearly
-        const sorted = [...msgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        setChatMessages(sorted);
-      }, 'createdAt');
+      unsubChat = subscribeToCollection<ChatMessage>(
+        'chat',
+        (msgs) => {
+          // Sort by oldest first so chat displays linearly
+          const sorted = [...msgs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          setChatMessages(sorted);
+        },
+        'createdAt',
+      );
 
       // Real-time subscriptions for auto parts enterprise features
       unsubTransfers = subscribeToCollection<StockTransfer>('transfers', setTransfers, 'createdAt');
@@ -114,9 +192,10 @@ export default function App() {
       unsubClientDebts = subscribeToCollection<ClientDebt>('client_debts', setClientDebts, 'createdAt');
       unsubCamionRoutes = subscribeToCollection<CamionRoute>('camion_routes', setCamionRoutes);
       unsubSupplierAlerts = subscribeToCollection<SupplierAlert>('supplier_alerts', setSupplierAlerts, 'createdAt');
+      unsubSectionsVisibility = subscribeToSectionsVisibility(setSectionsVisibility);
 
       // Keep login session stored locally for smooth UX
-      const storedAuth = getStoredData<AppUser | null>('auth_user', null);
+      const storedAuth = await getStoredData<AppUser | null>('auth_user', null);
       if (storedAuth) {
         setCurrentUser(storedAuth);
       }
@@ -138,52 +217,160 @@ export default function App() {
       unsubClientDebts();
       unsubCamionRoutes();
       unsubSupplierAlerts();
+      unsubSectionsVisibility();
     };
   }, []);
 
-  // Sync / monitor notifications to trigger real-time audio chime and high-visibility visual Toast
+  // Sync / monitor notifications to trigger real-time audio chime, heads-up system alerts, and in-app Toasts
+  const knownChatIdsRef = useRef<Set<string>>(new Set());
+  const isFirstChatLoadRef = useRef(true);
+
   useEffect(() => {
     if (notifications.length === 0) return;
 
     // On initial notifications load, just record the existing IDs and return (avoid chiming on old history)
     if (isFirstNotificationsLoadRef.current) {
-      notifications.forEach(n => knownNotificationIdsRef.current.add(n.id));
+      notifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
       isFirstNotificationsLoadRef.current = false;
       return;
     }
 
     // Find new notifications
-    const newNotifications = notifications.filter(n => !knownNotificationIdsRef.current.has(n.id));
+    const newNotifications = notifications.filter((n) => !knownNotificationIdsRef.current.has(n.id));
 
     // Update the set of known IDs
-    notifications.forEach(n => knownNotificationIdsRef.current.add(n.id));
+    notifications.forEach((n) => knownNotificationIdsRef.current.add(n.id));
 
     if (newNotifications.length === 0) return;
 
     // Check if any of these new ones target the logged in user
     if (!currentUser) return;
 
-    const relevantNotification = newNotifications.find(n => {
+    const relevantNotifications = newNotifications.filter((n) => {
+      if (n.createdByUid && n.createdByUid === currentUser.uid) return false;
+
       if (currentUser.role === 'admin') {
-        return true; // Admins monitor all system updates/expenses
-      } else {
-        // Workers see broadcast (all) or target specifically to them
-        return n.targetType === 'all' || n.targetUid === currentUser.uid;
+        return true;
       }
+
+      if (n.targetType === 'all') {
+        return true;
+      }
+
+      if (n.targetUids && n.targetUids.includes(currentUser.uid)) {
+        return true;
+      }
+
+      return false;
     });
 
-    if (relevantNotification) {
+    if (relevantNotifications.length > 0) {
       // Play a premium high-quality soft notification chime
       playNotificationChime();
 
-      // Set active toast to display on top of the UI
+      // Show in-app Toast for the latest incoming notification
+      const latestNotif = relevantNotifications[relevantNotifications.length - 1];
       setActiveToast({
-        id: relevantNotification.id,
-        title: relevantNotification.title,
-        body: relevantNotification.body
+        id: latestNotif.id,
+        title: latestNotif.title,
+        body: latestNotif.body,
+      });
+
+      // CRITICAL: Send native system notification (for notification drawer & lock screen)
+      relevantNotifications.forEach((notif) => {
+        sendNativeSystemNotification(notif.title, notif.body);
       });
     }
   }, [notifications, currentUser]);
+
+  // Sync / monitor chat messages to trigger background system notifications (Snapchat/WhatsApp style)
+  useEffect(() => {
+    if (chatMessages.length === 0) return;
+
+    // On initial chat load, record existing message IDs to avoid alerting old history
+    if (isFirstChatLoadRef.current) {
+      chatMessages.forEach((m) => knownChatIdsRef.current.add(m.id));
+      isFirstChatLoadRef.current = false;
+      return;
+    }
+
+    // Find new incoming chat messages
+    const newMessages = chatMessages.filter((m) => !knownChatIdsRef.current.has(m.id));
+
+    // Keep track of the message IDs
+    chatMessages.forEach((m) => knownChatIdsRef.current.add(m.id));
+
+    if (newMessages.length === 0) return;
+    if (!currentUser) return;
+
+    // Only notify if message was sent by someone else (not the current user)
+    const incomingMessages = newMessages.filter((m) => m.senderUid !== currentUser.uid);
+
+    if (incomingMessages.length > 0) {
+      // Play soft chime
+      playNotificationChime();
+
+      // Send native system notification for each new message
+      incomingMessages.forEach((msg) => {
+        sendNativeSystemNotification(`💬 رسالة جديدة من ${msg.senderName}`, msg.text);
+      });
+    }
+  }, [chatMessages, currentUser]);
+
+  // Real-time Native FCM Push Notification Registry
+  useEffect(() => {
+    if (!currentUser || !Capacitor.isNativePlatform()) return;
+
+    const setupPush = async () => {
+      try {
+        console.log('[FBM FCM] Initializing Native Push Notifications Setup...');
+        let perm = await PushNotifications.checkPermissions();
+        if (perm.receive !== 'granted') {
+          perm = await PushNotifications.requestPermissions();
+        }
+
+        if (perm.receive === 'granted') {
+          await PushNotifications.register();
+        }
+
+        // Handle successful registration and update token in Firestore
+        PushNotifications.addListener('registration', async (token) => {
+          console.log('[FBM FCM] Registration successful, Token:', token.value);
+          if (token.value && token.value !== currentUser.fcmToken) {
+            const updatedUser = { ...currentUser, fcmToken: token.value };
+            await saveUserToFirestore(updatedUser);
+          }
+        });
+
+        PushNotifications.addListener('registrationError', (err) => {
+          console.error('[FBM FCM] Native Push Registration failed:', err);
+        });
+
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('[FBM FCM] Push Notification received in foreground:', notification);
+          // Play sound and trigger in-app alert or notification list update
+          playNotificationChime();
+          setActiveToast({
+            id: `push_toast_${Date.now()}`,
+            title: notification.title || 'تنبيه جديد 🔔',
+            body: notification.body || '',
+          });
+        });
+      } catch (err) {
+        console.error('[FBM FCM] Error setting up Push Notifications:', err);
+      }
+    };
+
+    setupPush();
+
+    return () => {
+      try {
+        PushNotifications.removeAllListeners();
+      } catch (e) {
+        console.warn('[FBM FCM] Error removing listeners:', e);
+      }
+    };
+  }, [currentUser]);
 
   // Handle active toast auto-dismissal after 6 seconds
   useEffect(() => {
@@ -211,25 +398,26 @@ export default function App() {
         // Trigger if deadline is within 24 hours and is not yet alerted
         if (diffMs > -2 * 60 * 60 * 1000 && diffMs <= twentyFourHoursMs) {
           const alertId = `alert_24h_${task.id}`;
-          
+
           // Check if we already created an alert notification for this task
-          const alreadyAlerted = notifications.some(n => n.id === alertId);
+          const alreadyAlerted = notifications.some((n) => n.id === alertId);
           if (!alreadyAlerted) {
-            const formattedDate = new Date(task.dueDate).toLocaleString('ar-DZ', {
+            const formattedDate = new Date(task.dueDate).toLocaleString('en-GB', {
               year: 'numeric',
               month: 'short',
               day: 'numeric',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
             });
 
             handleAddNotification({
               id: alertId,
               title: 'تنبيه اقتراب الموعد النهائي ⚠️',
-              body: `المهمة: "${task.title}" المكلف بها (${task.assignedToName}) يتبقى على موعدها النهائي أقل من 24 ساعة (الموعد: ${formattedDate}).`,
+              body: `المهمة: "${task.title}" المكلف بها (${task.assignedToNames.join(', ')}) يتبقى على موعدها النهائي أقل من 24 ساعة (الموعد: ${formattedDate}).`,
               targetType: 'all',
-              isRead: false,
-              createdAt: new Date().toISOString()
+              readByUids: [],
+              createdByUid: currentUser?.uid,
+              createdAt: new Date().toISOString(),
             });
           }
         }
@@ -246,88 +434,91 @@ export default function App() {
 
   // Sync state changes with Cloud Firestore
   const handleUpdateUsers = async (newUsers: AppUser[]) => {
+    const changed = newUsers.filter((newItem) => {
+      const oldItem = users.find((old) => old.uid === newItem.uid);
+      return !oldItem || !isEqual(oldItem, newItem);
+    });
     setUsers(newUsers);
-    
-    // Save/update any new or modified users
-    for (const u of newUsers) {
-      await saveUserToFirestore(u);
-    }
-    
-    // Delete any users removed from the list
-    const removed = users.filter(curr => !newUsers.some(nu => nu.uid === curr.uid));
-    for (const ru of removed) {
-      await deleteUserFromFirestore(ru.uid);
+    for (const item of changed) {
+      await saveUserToFirestore(item);
     }
   };
 
   const handleUpdateCategories = async (newCategories: CompanyCategory[]) => {
+    const changed = newCategories.filter((newItem) => {
+      const oldItem = categories.find((old) => old.id === newItem.id);
+      return !oldItem || !isEqual(oldItem, newItem);
+    });
     setCategories(newCategories);
-    
-    for (const c of newCategories) {
-      await saveCategoryToFirestore(c);
-    }
-    
-    const removed = categories.filter(curr => !newCategories.some(nc => nc.id === curr.id));
-    for (const rc of removed) {
-      await deleteCategoryFromFirestore(rc.id);
+    for (const item of changed) {
+      await saveCategoryToFirestore(item);
     }
   };
 
   const handleUpdateTasks = async (newTasks: CompanyTask[]) => {
+    const changed = newTasks.filter((newItem) => {
+      const oldItem = tasks.find((old) => old.id === newItem.id);
+      return !oldItem || !isEqual(oldItem, newItem);
+    });
     setTasks(newTasks);
-    
-    for (const t of newTasks) {
-      await saveTaskToFirestore(t);
+    for (const item of changed) {
+      await saveTaskToFirestore(item);
     }
   };
 
   const handleDeleteTask = async (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    setTasks((prev) => prev.filter((t) => t.id !== id));
     await deleteTaskFromFirestore(id);
   };
 
   const handleUpdateExpenses = async (newExpenses: CompanyExpense[]) => {
+    const changed = newExpenses.filter((newItem) => {
+      const oldItem = expenses.find((old) => old.id === newItem.id);
+      return !oldItem || !isEqual(oldItem, newItem);
+    });
     setExpenses(newExpenses);
-    
-    for (const e of newExpenses) {
-      await saveExpenseToFirestore(e);
+    for (const item of changed) {
+      await saveExpenseToFirestore(item);
     }
   };
 
   const handleDeleteExpense = async (id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
     await deleteExpenseFromFirestore(id);
   };
 
+  const handleUpdateNotification = async (updatedNotif: CompanyNotification) => {
+    setNotifications((prev) => prev.map((n) => (n.id === updatedNotif.id ? updatedNotif : n)));
+    await saveNotificationToFirestore(updatedNotif);
+  };
+
   const handleUpdateNotifications = async (newNotifications: CompanyNotification[]) => {
+    const changed = newNotifications.filter((newItem) => {
+      const oldItem = notifications.find((old) => old.id === newItem.id);
+      return !oldItem || !isEqual(oldItem, newItem);
+    });
     setNotifications(newNotifications);
-    
-    for (const n of newNotifications) {
-      await saveNotificationToFirestore(n);
-    }
-    
-    const removed = notifications.filter(curr => !newNotifications.some(nn => nn.id === curr.id));
-    for (const rn of removed) {
-      await deleteNotificationFromFirestore(rn.id);
+    for (const item of changed) {
+      await saveNotificationToFirestore(item);
     }
   };
 
-  const handleLoginSuccess = (user: AppUser) => {
+  const handleLoginSuccess = async (user: AppUser) => {
     setCurrentUser(user);
-    setStoredData('auth_user', user);
+    await setStoredData('auth_user', user);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setCurrentUser(null);
-    setStoredData('auth_user', null);
+    await setStoredData('auth_user', null);
   };
 
   // State mutation actions passed down
   const handleUpdateAttendance = async (record: AttendanceRecord) => {
-    setAttendance(prev => {
-      const exists = prev.some(r => r.id === record.id);
+    setAttendance((prev) => {
+      const exists = prev.some((r) => r.id === record.id);
       if (exists) {
-        return prev.map(r => r.id === record.id ? record : r);
+        return prev.map((r) => (r.id === record.id ? record : r));
       } else {
         return [record, ...prev];
       }
@@ -336,7 +527,7 @@ export default function App() {
   };
 
   const handleAddChatMessage = async (msg: ChatMessage) => {
-    setChatMessages(prev => [...prev, msg]);
+    setChatMessages((prev) => [...prev, msg]);
     await saveChatToFirestore(msg);
   };
 
@@ -345,24 +536,53 @@ export default function App() {
     handleUpdateExpenses(updated);
   };
 
-  // Helper to send real native device/PC push notifications (like Facebook)
-  const sendNativeSystemNotification = (title: string, body: string) => {
+  // Helper to send real native device push notifications (like WhatsApp/Snapchat)
+  const sendNativeSystemNotification = async (title: string, body: string) => {
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: title,
+              body: body,
+              id: Math.floor(Math.random() * 2000000) + 1,
+              // Use 1 second delay — enough for Android to process it
+              schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true },
+              // Link to the FBM channel we created at startup
+              channelId: 'fbm-main-channel',
+              smallIcon: 'ic_launcher',
+              iconColor: '#76BC21',
+              sound: 'default',
+              actionTypeId: '',
+              extra: { source: 'fbm-erp' },
+            },
+          ],
+        });
+      } catch (e) {
+        console.error('[FBM] Failed to schedule native notification:', e);
+      }
+      return;
+    }
+
+    // Web fallback
     if (!('Notification' in window)) return;
     if (Notification.permission === 'granted') {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then((reg) => {
-          reg.showNotification(title, {
-            body: body,
-            icon: 'https://img.icons8.com/color/192/delivery.png',
-            badge: 'https://img.icons8.com/color/192/delivery.png',
-            vibrate: [200, 100, 200],
-            tag: 'fbm-erp-notification'
-          } as any).catch(() => {
-            new Notification(title, { body, icon: 'https://img.icons8.com/color/192/delivery.png' });
-          });
+          reg
+            .showNotification(title, {
+              body: body,
+              icon: '/icon-192.png',
+              badge: '/icon-192.png',
+              vibrate: [200, 100, 200],
+              tag: `fbm-notif-${Date.now()}`,
+            } as any)
+            .catch(() => {
+              new Notification(title, { body });
+            });
         });
       } else {
-        new Notification(title, { body, icon: 'https://img.icons8.com/color/192/delivery.png' });
+        new Notification(title, { body });
       }
     }
   };
@@ -370,29 +590,29 @@ export default function App() {
   const handleAddNotification = (newNotif: CompanyNotification) => {
     const updated = [newNotif, ...notifications];
     handleUpdateNotifications(updated);
-    
+
     // Trigger real native OS push alert!
     sendNativeSystemNotification(newNotif.title, newNotif.body);
   };
 
   const handleUpdateTaskStatus = (
-    taskId: string, 
-    status: 'in_progress' | 'done', 
+    taskId: string,
+    status: 'in_progress' | 'done',
     timestamp: string,
     signatureImage?: string | null,
-    locationGPS?: { lat: number; lng: number } | null
+    locationGPS?: { lat: number; lng: number } | null,
   ) => {
-    const updated = tasks.map(t => {
+    const updated = tasks.map((t) => {
       if (t.id === taskId) {
         if (status === 'in_progress') {
           return { ...t, status, startedAt: timestamp };
         } else if (status === 'done') {
-          return { 
-            ...t, 
-            status, 
-            completedAt: timestamp, 
-            signatureImage: signatureImage || null, 
-            locationGPS: locationGPS || null 
+          return {
+            ...t,
+            status,
+            completedAt: timestamp,
+            signatureImage: signatureImage || null,
+            locationGPS: locationGPS || null,
           };
         }
       }
@@ -400,108 +620,143 @@ export default function App() {
     });
     handleUpdateTasks(updated);
 
-    // Automatically notify admins about progress
-    const updatedTask = updated.find(t => t.id === taskId);
+    // Automatically notify admins and assigned workers about progress
+    const updatedTask = updated.find((t) => t.id === taskId);
     if (updatedTask) {
       const statusText = status === 'in_progress' ? 'بدء العمل الميداني على' : 'إنجاز وإتمام';
+      
+      let targetUids: string[] = [];
+      if (status === 'done') {
+        // Task completion notification goes to management only (admin, supervisor, general_manager)
+        targetUids = users
+          .filter((u) => u.uid !== currentUser?.uid && (u.role === 'admin' || u.subRole === 'supervisor' || u.subRole === 'general_manager'))
+          .map((u) => u.uid);
+      } else {
+        // Work-start notification goes to management + other workers assigned to this task (excluding current user)
+        const managementUids = users
+          .filter((u) => u.uid !== currentUser?.uid && (u.role === 'admin' || u.subRole === 'supervisor' || u.subRole === 'general_manager'))
+          .map((u) => u.uid);
+        const assignedOtherUids = updatedTask.assignedToUids?.filter((uid) => uid !== currentUser?.uid) || [];
+        targetUids = Array.from(new Set([...managementUids, ...assignedOtherUids]));
+      }
+
       handleAddNotification({
         id: `notif_sys_${Date.now()}`,
         title: `تحديث تشغيلي: ${statusText} المهمة`,
-        body: `الموظف ${currentUser?.fullName.split(' ')[0]} قام بتسجيل ${statusText} المهمة: "${updatedTask.title}"`,
-        targetType: 'all',
-        isRead: false,
-        createdAt: new Date().toISOString()
+        body: `قام ${currentUser?.fullName.split(' ')[0]} للتو بتسجيل ${statusText} للمهمة: "${updatedTask.title}"`,
+        targetType: targetUids.length > 0 ? 'specific' : 'all',
+        targetUids: targetUids.length > 0 ? targetUids : null,
+        readByUids: [],
+        createdByUid: currentUser?.uid,
+        createdAt: new Date().toISOString(),
       });
     }
   };
 
   // Mutators for StockTransfers
   const handleAddTransfer = async (t: StockTransfer) => {
-    setTransfers(prev => [t, ...prev]);
+    setTransfers((prev) => [t, ...prev]);
     await saveTransferToFirestore(t);
   };
   const handleUpdateTransfer = async (t: StockTransfer) => {
-    setTransfers(prev => prev.map(item => item.id === t.id ? t : item));
+    setTransfers((prev) => prev.map((item) => (item.id === t.id ? t : item)));
     await saveTransferToFirestore(t);
   };
   const handleDeleteTransfer = async (id: string) => {
-    setTransfers(prev => prev.filter(item => item.id !== id));
+    setTransfers((prev) => prev.filter((item) => item.id !== id));
     await deleteTransferFromFirestore(id);
   };
 
   // Mutators for ClientOrders
   const handleAddClientOrder = async (o: ClientOrder) => {
-    setClientOrders(prev => [o, ...prev]);
+    setClientOrders((prev) => [o, ...prev]);
     await saveClientOrderToFirestore(o);
   };
   const handleUpdateClientOrder = async (o: ClientOrder) => {
-    setClientOrders(prev => prev.map(item => item.id === o.id ? o : item));
+    setClientOrders((prev) => prev.map((item) => (item.id === o.id ? o : item)));
     await saveClientOrderToFirestore(o);
   };
   const handleDeleteClientOrder = async (id: string) => {
-    setClientOrders(prev => prev.filter(item => item.id !== id));
+    setClientOrders((prev) => prev.filter((item) => item.id !== id));
     await deleteClientOrderFromFirestore(id);
   };
 
   // Mutators for ClientDebts
   const handleAddClientDebt = async (d: ClientDebt) => {
-    setClientDebts(prev => [d, ...prev]);
+    setClientDebts((prev) => [d, ...prev]);
     await saveClientDebtToFirestore(d);
   };
   const handleUpdateClientDebt = async (d: ClientDebt) => {
-    setClientDebts(prev => prev.map(item => item.id === d.id ? d : item));
+    setClientDebts((prev) => prev.map((item) => (item.id === d.id ? d : item)));
     await saveClientDebtToFirestore(d);
   };
   const handleDeleteClientDebt = async (id: string) => {
-    setClientDebts(prev => prev.filter(item => item.id !== id));
+    setClientDebts((prev) => prev.filter((item) => item.id !== id));
     await deleteClientDebtFromFirestore(id);
   };
 
   // Mutators for CamionRoutes
   const handleAddCamionRoute = async (r: CamionRoute) => {
-    setCamionRoutes(prev => [r, ...prev]);
+    setCamionRoutes((prev) => [r, ...prev]);
     await saveCamionRouteToFirestore(r);
   };
   const handleUpdateCamionRoute = async (r: CamionRoute) => {
-    setCamionRoutes(prev => prev.map(item => item.id === r.id ? r : item));
+    setCamionRoutes((prev) => prev.map((item) => (item.id === r.id ? r : item)));
     await saveCamionRouteToFirestore(r);
   };
   const handleDeleteCamionRoute = async (id: string) => {
-    setCamionRoutes(prev => prev.filter(item => item.id !== id));
+    setCamionRoutes((prev) => prev.filter((item) => item.id !== id));
     await deleteCamionRouteFromFirestore(id);
   };
 
   // Mutators for SupplierAlerts
   const handleAddSupplierAlert = async (s: SupplierAlert) => {
-    setSupplierAlerts(prev => [s, ...prev]);
+    setSupplierAlerts((prev) => [s, ...prev]);
     await saveSupplierAlertToFirestore(s);
   };
   const handleUpdateSupplierAlert = async (s: SupplierAlert) => {
-    setSupplierAlerts(prev => prev.map(item => item.id === s.id ? s : item));
+    setSupplierAlerts((prev) => prev.map((item) => (item.id === s.id ? s : item)));
     await saveSupplierAlertToFirestore(s);
   };
   const handleDeleteSupplierAlert = async (id: string) => {
-    setSupplierAlerts(prev => prev.filter(item => item.id !== id));
+    setSupplierAlerts((prev) => prev.filter((item) => item.id !== id));
     await deleteSupplierAlertFromFirestore(id);
   };
 
-  if (isInitializing) {
+  if (isInitializing || !isUsersLoaded) {
     return (
-      <div className="min-h-screen bg-[#000839] flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#76BC21] border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-slate-400 text-xs mt-4 font-bold tracking-wider">جاري تشغيل نظام بن عمر ERP...</p>
+      <div className="min-h-screen bg-[#f8fafc] dark:bg-fbm-blue flex flex-col items-center justify-center relative overflow-hidden">
+        
+        {/* Spinning ring */}
+        <div className="relative flex items-center justify-center mb-6">
+          <div className="w-24 h-24 border-4 border-fbm-green/20 rounded-full" />
+          <div className="absolute w-24 h-24 border-4 border-transparent border-t-[#76BC21] rounded-full animate-spin" />
+          <div
+            className="absolute w-16 h-16 border-2 border-transparent border-b-[#76BC21]/40 rounded-full animate-spin"
+            style={{ animationDuration: '1.5s', animationDirection: 'reverse' }}
+          />
+        </div>
+        <p className="text-slate-900 dark:text-white font-black text-xl tracking-widest">FBM</p>
+        <p className="text-slate-500 text-[10px] mt-1 font-medium tracking-widest uppercase">LES FRÈRES BENAMAR · V1.1</p>
+        <div className="mt-6 flex gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-1.5 h-1.5 bg-fbm-green hover:bg-fbm-green-hover text-white dark:text-fbm-blue rounded-full animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000839]">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-fbm-blue">
+      <ToasterSetup />
       {currentUser === null ? (
-        <SmartLogin 
-          users={users} 
-          onLoginSuccess={handleLoginSuccess} 
-        />
-      ) : (currentUser.role === 'worker' || adminViewMode === 'worker') ? (
+        <SmartLogin users={users} onLogin={handleLoginSuccess} />
+      ) : currentUser.role === 'worker' || adminViewMode === 'worker' ? (
         <WorkerDashboard
           currentUser={currentUser}
           users={users}
@@ -515,6 +770,8 @@ export default function App() {
           onAddExpense={handleAddExpense}
           onUpdateTaskStatus={handleUpdateTaskStatus}
           onUpdateNotifications={handleUpdateNotifications}
+          onUpdateNotification={handleUpdateNotification}
+          
           onUpdateAttendance={handleUpdateAttendance}
           onAddChatMessage={handleAddChatMessage}
           transfers={transfers}
@@ -539,8 +796,11 @@ export default function App() {
           onDeleteSupplierAlert={handleDeleteSupplierAlert}
           isPrivileged={currentUser.role === 'admin' || currentUser.subRole === 'supervisor'}
           adminViewMode={adminViewMode}
-          onToggleViewMode={() => setAdminViewMode(prev => prev === 'admin' ? 'worker' : 'admin')}
+          onToggleViewMode={() => setAdminViewMode((prev) => (prev === 'admin' ? 'worker' : 'admin'))}
+          onToggleTheme={toggleTheme}
+          isDarkMode={isDarkMode}
           onDeleteExpense={handleDeleteExpense}
+          sectionsVisibility={sectionsVisibility}
         />
       ) : (
         <AdminDashboard
@@ -566,6 +826,9 @@ export default function App() {
           onUpdateCategories={handleUpdateCategories}
           onAddNotification={handleAddNotification}
           onUpdateNotifications={handleUpdateNotifications}
+          onUpdateNotification={handleUpdateNotification}
+          sectionsVisibility={sectionsVisibility}
+          
           onUpdateUsers={handleUpdateUsers}
           onAddChatMessage={handleAddChatMessage}
           onAddTransfer={handleAddTransfer}
@@ -585,47 +848,51 @@ export default function App() {
           onDeleteSupplierAlert={handleDeleteSupplierAlert}
           onUpdateAttendance={handleUpdateAttendance}
           adminViewMode={adminViewMode}
-          onToggleViewMode={() => setAdminViewMode(prev => prev === 'admin' ? 'worker' : 'admin')}
+          onToggleViewMode={() => setAdminViewMode((prev) => (prev === 'admin' ? 'worker' : 'admin'))}
+          onToggleTheme={toggleTheme}
+          isDarkMode={isDarkMode}
         />
       )}
 
-      {/* Floating Premium Toast Notification */}
+      {/* ── Premium iOS-style Heads-Up Toast Notification ── */}
       {activeToast && (
-        <div 
-          className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-[9999] max-w-sm w-full bg-[#050E46]/95 backdrop-blur border border-slate-700/80 rounded-2xl shadow-2xl p-4 flex gap-3 text-right animate-slideIn"
+        <div
+          className="fixed top-0 left-0 right-0 z-[9999] flex justify-center px-3 pt-2 safe-top notif-toast"
           dir="rtl"
         >
-          {/* Bell Icon & Glow */}
-          <div className="shrink-0">
-            <div className="w-10 h-10 bg-[#76BC21]/10 text-[#76BC21] rounded-xl flex items-center justify-center relative shadow-inner animate-pulse">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full animate-ping"></span>
-            </div>
-          </div>
+          <div className="w-full max-w-sm bg-white/97 dark:bg-fbm-blue-card/97 backdrop-blur-xl border border-fbm-green/20 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+            {/* Top accent bar */}
+            <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-[#76BC21] to-transparent" />
 
-          {/* Content */}
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex justify-between items-start gap-2">
-              <h4 className="text-xs font-black text-white">{activeToast.title}</h4>
-              <button 
-                onClick={() => setActiveToast(null)}
-                className="text-slate-400 hover:text-white transition-all cursor-pointer p-0.5 hover:bg-slate-800 rounded-lg"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed">{activeToast.body}</p>
-            
-            {/* Visual Progress Bar Timer indicator */}
-            <div className="pt-2">
-              <div className="w-full bg-slate-900 h-1 rounded-full overflow-hidden">
-                <div className="bg-[#76BC21] h-full rounded-full animate-toastProgress"></div>
+            <div className="flex items-start gap-3 p-3.5">
+              {/* App Icon */}
+              <div className="shrink-0 w-10 h-10 bg-fbm-green hover:bg-fbm-green-hover text-white dark:text-fbm-blue rounded-xl flex items-center justify-center shadow-lg shadow-[#76BC21]/30">
+                <Bell className="w-5 h-5 text-zinc-950" />
               </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <p className="text-[10px] font-black text-fbm-green uppercase tracking-wider">FBM ERP</p>
+                  <button
+                    onClick={() => setActiveToast(null)}
+                    className="text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1 -mr-1"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+                <p className="text-xs font-black text-slate-900 dark:text-white leading-tight">{activeToast.title}</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed mt-0.5 line-clamp-2">{activeToast.body}</p>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div className="h-0.5 bg-slate-100 dark:bg-fbm-blue-card">
+              <div className="bg-fbm-green hover:bg-fbm-green-hover text-white dark:text-fbm-blue h-full animate-toastProgress" />
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
